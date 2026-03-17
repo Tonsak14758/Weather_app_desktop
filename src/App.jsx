@@ -6,15 +6,32 @@ import {
   SunDim, SunMedium, Sunrise, Sunset, CloudSun, Star, Sparkles, Flame, Zap,
   MoonStar, CloudMoon, StarHalf, Circle, Aperture, Disc, Cloud, Target, Shield,
   CloudDrizzle, CloudLightning, CloudSnow, CloudHail, Droplets, CloudRainWind, Tornado, Wind, Waves,
-  // NEW: Icons for complex weather metrics
-  Gauge, CloudFog, Activity, ArrowDown, ArrowUp
+  Gauge, CloudFog, Activity, ArrowDown, ArrowUp, Loader2, Search // Added Search Icon
 } from 'lucide-react';
 
 const sunIconMap = { Sun, SunDim, SunMedium, Sunrise, Sunset, CloudSun, Star, Sparkles, Flame, Zap };
 const moonIconMap = { Moon, MoonStar, CloudMoon, StarHalf, Circle, Aperture, Disc, Cloud, Target, Shield };
 const rainIconMap = { CloudRain, CloudDrizzle, CloudLightning, CloudSnow, CloudHail, Droplets, CloudRainWind, Tornado, Wind, Waves };
 
+// NEW: UK Universities Database for the Search Feature
+const UK_UNIVERSITIES = [
+  { city: "London", uni: "Queen Mary University", campus: "Main Campus", queryStr: "London,uk" },
+  { city: "Oxford", uni: "University of Oxford", campus: "Central Campus", queryStr: "Oxford,uk" },
+  { city: "Cambridge", uni: "University of Cambridge", campus: "Central Campus", queryStr: "Cambridge,uk" },
+  { city: "Manchester", uni: "University of Manchester", campus: "Oxford Road", queryStr: "Manchester,uk" },
+  { city: "Edinburgh", uni: "University of Edinburgh", campus: "Central Area", queryStr: "Edinburgh,uk" },
+  { city: "Bristol", uni: "University of Bristol", campus: "Clifton Campus", queryStr: "Bristol,uk" },
+  { city: "Glasgow", uni: "University of Glasgow", campus: "Gilmorehill", queryStr: "Glasgow,uk" },
+  { city: "Leeds", uni: "University of Leeds", campus: "Woodhouse", queryStr: "Leeds,uk" },
+  { city: "Nottingham", uni: "University of Nottingham", campus: "University Park", queryStr: "Nottingham,uk" },
+  { city: "Cardiff", uni: "University of Cardiff", campus: "Cathays Park", queryStr: "Cardiff,uk" }
+];
+
 export default function App() {
+  // --- OPENWEATHER API CONFIGURATION ---
+  const API_KEY = '606defed52591c2c7c1e350903d8e8e7'; // OpenWeather API Key
+  //const API_KEY = ''; // OpenWeather API Key
+
   // --- STATE MANAGEMENT ---
   const [isDay, setIsDay] = useState(true);
   const [isRain, setIsRain] = useState(false); 
@@ -22,11 +39,21 @@ export default function App() {
   const [activePage, setActivePage] = useState('home');
   const [appTheme, setAppTheme] = useState('dynamic');
   
-  // UPDATED: App Mode State now supports 'complex'
-  const [appMode, setAppMode] = useState('simple'); // 'simple', 'complex', or 'battery-save'
-  const isBatterySave = appMode === 'battery-save';
+  // UPDATED: Separated Battery Save into its own independent toggle state
+  const [appMode, setAppMode] = useState('simple'); // 'simple' or 'complex'
+  const [isBatterySave, setIsBatterySave] = useState(false); // true or false modifier
   const isComplex = appMode === 'complex';
   
+  // NEW: Search & Location States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState(UK_UNIVERSITIES[0]); // Defaults to London/QMUL
+
+  // Real-time Weather States
+  const [weatherData, setWeatherData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState(null);
+
   const [customColors, setCustomColors] = useState({
     dayClear: '#3B82F6',
     nightClear: '#0F3460',
@@ -51,32 +78,98 @@ export default function App() {
 
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // Live Clock Effect
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
+  // Language Effect
   useEffect(() => {
     setActiveLang(primaryLang);
   }, [primaryLang]);
 
-  // --- MOCK DATA ---
-  const baseTempC = 11;
-  const mockComplexData = {
-    humidity: "68%",
-    wind: "14 km/h",
-    uv: "4",
-    pollution: "22 (Low)",
-    pressure: "1012 hPa",
-    sunrise: "06:14 AM",
-    sunset: "18:42 PM"
-  };
+  // --- API FETCH EFFECT ---
+  useEffect(() => {
+    const fetchWeather = async () => {
+      setIsLoading(true);
+      
+      if (!API_KEY || API_KEY === 'YOUR_OPENWEATHER_API_KEY_HERE') {
+          console.log("No API Key provided. Loading fallback mock data...");
+          loadMockData("Missing API Key");
+          return;
+      }
+
+      try {
+        // UPDATED: Now dynamically fetches based on the chosen Campus location!
+        const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${selectedLocation.queryStr}&appid=${API_KEY}&units=metric`);
+        
+        if (!response.ok) {
+           const errorData = await response.json();
+           throw new Error(errorData.message || 'API Request Failed');
+        }
+        
+        const data = await response.json();
+        
+        const isRainingNow = data.weather.some(w => w.id >= 200 && w.id < 600);
+        const now = Math.floor(Date.now() / 1000);
+        const isDaytimeNow = now >= data.sys.sunrise && now <= data.sys.sunset;
+
+        const formatTime = (timestamp) => {
+          return new Date(timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        };
+
+        setWeatherData({
+          temp: data.main.temp,
+          humidity: `${data.main.humidity}%`,
+          wind: `${(data.wind.speed * 3.6).toFixed(1)} km/h`, 
+          pressure: `${data.main.pressure} hPa`,
+          sunrise: formatTime(data.sys.sunrise),
+          sunset: formatTime(data.sys.sunset),
+          uv: "4", 
+          pollution: "22 (Low)" 
+        });
+
+        setIsDay(isDaytimeNow);
+        setIsRain(isRainingNow);
+        setApiError(null);
+
+      } catch (error) {
+        console.warn("OpenWeather API Notice:", error.message);
+        let errMsg = "API Offline";
+        if (error.message.toLowerCase().includes("invalid api key")) {
+          errMsg = "API Key Pending/Invalid";
+        }
+        loadMockData(errMsg);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const loadMockData = (errMsg = "API Defaulted") => {
+        setApiError(errMsg);
+        setWeatherData({
+          temp: 11,
+          humidity: "68%",
+          wind: "14.2 km/h",
+          pressure: "1012 hPa",
+          sunrise: "06:14 AM",
+          sunset: "18:42 PM",
+          uv: "4",
+          pollution: "22 (Low)"
+        });
+    };
+
+    fetchWeather();
+  }, [API_KEY, selectedLocation.queryStr]); // Fetch fires whenever the selected location changes!
 
   // --- LOGIC FUNCTIONS ---
   const getDisplayTemperature = () => {
-    if (unit === 'C') return `${baseTempC}°C`;
-    if (unit === 'F') return `${(baseTempC * 9/5 + 32).toFixed(1)}°F`;
-    if (unit === 'K') return `${(baseTempC + 273.15).toFixed(2)}K`;
+    if (!weatherData) return "--°";
+    const temp = weatherData.temp;
+    if (unit === 'C') return `${Math.round(temp)}°C`;
+    if (unit === 'F') return `${Math.round(temp * 9/5 + 32)}°F`;
+    if (unit === 'K') return `${Math.round(temp + 273.15)}K`;
   };
 
   const cycleWeather = () => {
@@ -112,15 +205,14 @@ export default function App() {
     if (!isDay && isRain) return customColors.nightRain;
   };
 
-  // UPDATED: Added translations for Complex Mode and Meteorological terms
   const text = {
-    EN: { gearDay: "Gear: Sunglasses only", gearNight: "Gear: Umbrella required", city: "London", uni: "Queen Mary University", campus: "Main Campus", optionsTitle: "Settings & Options", langPrefTitle: "Language Preferences", primaryLangLabel: "Primary Language", secondaryLangLabel: "Secondary Language (Header Toggle)", studentProfile: "Student Profile", manageId: "Manage your university ID", notifications: "Notifications", weatherAlerts: "Severe weather alerts", mapTitle: "Campus Map", mapComingSoon: "Interactive map feature coming in Phase 2!", themeTitle: "App Theme", themeDesc: "Customize your app's appearance", themeDynamic: "Dynamic (Weather)", themeMidnight: "Midnight Dark", themeSunset: "Sunset Glow", themeQMUL: "QMUL Blue", themeForest: "Forest Green", themeProtanopia: "Protanopia (Red-Blind)", themeDeuteranopia: "Deuteranopia (Green-Blind)", themeTritanopia: "Tritanopia (Blue-Blind)", previewTitle: "Live Preview", themeCustom: "Custom Theme", colorDayClear: "Day (Clear)", colorNightClear: "Night (Clear)", colorDayRain: "Day (Rain)", colorNightRain: "Night (Rain)", styleSun: "Sun Style", styleMoon: "Moon Style", styleRain: "Rain Style", tapToToggle: "Tap to cycle weather", bgColors: "Backgrounds", elementColors: "Elements & Text", colorSun: "Sun Color", colorMoon: "Moon Color", colorRain: "Rain Color", colorText: "Text Color", colorNavSelected: "Active Nav", modeTitle: "App Mode", modeSimple: "Simple Mode", modeComplex: "Complex Mode", modeBattery: "Battery Saver", humidity: "Humidity", wind: "Wind", uv: "UV Index", pollution: "Pollution (AQI)", pressure: "Pressure", sunrise: "Sunrise", sunset: "Sunset" },
-    TH: { gearDay: "อุปกรณ์: ใส่แว่นกันแดดเท่านั้น", gearNight: "อุปกรณ์: ต้องการร่ม", city: "ลอนดอน", uni: "มหาวิทยาลัยควีนแมรี่", campus: "วิทยาเขตหลัก", optionsTitle: "การตั้งค่าและตัวเลือก", langPrefTitle: "การตั้งค่าภาษา", primaryLangLabel: "ภาษาหลัก", secondaryLangLabel: "ภาษารอง (สลับที่ส่วนหัว)", studentProfile: "โปรไฟล์นักศึกษา", manageId: "จัดการรหัสนักศึกษา", notifications: "การแจ้งเตือน", weatherAlerts: "เตือนสภาพอากาศรุนแรง", mapTitle: "แผนที่วิทยาเขต", mapComingSoon: "แผนที่แบบโต้ตอบจะมาในเฟส 2!", themeTitle: "ธีมแอป", themeDesc: "ปรับแต่งลักษณะแอปของคุณ", themeDynamic: "ไดนามิก (ตามสภาพอากาศ)", themeMidnight: "มิดไนท์ดาร์ก", themeSunset: "แสงอาทิตย์ตก", themeQMUL: "สีฟ้า QMUL", themeForest: "สีเขียวป่า", themeProtanopia: "ตาบอดสีแดง (Protanopia)", themeDeuteranopia: "ตาบอดสีเขียว (Deuteranopia)", themeTritanopia: "ตาบอดสีน้ำเงิน (Tritanopia)", previewTitle: "แสดงตัวอย่างสด", themeCustom: "ธีมกำหนดเอง", colorDayClear: "กลางวัน (แจ่มใส)", colorNightClear: "กลางคืน (แจ่มใส)", colorDayRain: "กลางวัน (ฝนตก)", colorNightRain: "กลางคืน (ฝนตก)", styleSun: "สไตล์พระอาทิตย์", styleMoon: "สไตล์พระจันทร์", styleRain: "สไตล์ฝน", tapToToggle: "แตะเพื่อสลับสภาพอากาศ", bgColors: "สีพื้นหลัง", elementColors: "องค์ประกอบและข้อความ", colorSun: "สีพระอาทิตย์", colorMoon: "สีพระจันทร์", colorRain: "สีฝน", colorText: "สีข้อความ", colorNavSelected: "สีเมนูที่เลือก", modeTitle: "โหมดแอป", modeSimple: "โหมดปกติ", modeComplex: "โหมดรายละเอียด", modeBattery: "ประหยัดแบตเตอรี่", humidity: "ความชื้น", wind: "ลม", uv: "ดัชนี UV", pollution: "มลพิษ", pressure: "ความกดอากาศ", sunrise: "พระอาทิตย์ขึ้น", sunset: "พระอาทิตย์ตก" },
-    ZH: { gearDay: "装备：仅需太阳镜", gearNight: "装备：需要雨伞", city: "伦敦", uni: "玛丽女王大学", campus: "主校区", optionsTitle: "设置与选项", langPrefTitle: "语言偏好", primaryLangLabel: "主要语言", secondaryLangLabel: "次要语言 (顶部切换)", studentProfile: "学生档案", manageId: "管理您的大学 ID", notifications: "通知", weatherAlerts: "恶劣天气警报", mapTitle: "校园地图", mapComingSoon: "交互式地图功能将在第二阶段推出！", themeTitle: "应用主题", themeDesc: "自定义您的应用外观", themeDynamic: "动态 (天气)", themeMidnight: "午夜深黑", themeSunset: "日落晚霞", themeQMUL: "QMUL 蓝", themeForest: "森林绿", themeProtanopia: "红色盲安全", themeDeuteranopia: "绿色盲安全", themeTritanopia: "蓝色盲安全", previewTitle: "实时预览", themeCustom: "自定义主题", colorDayClear: "白天 (晴)", colorNightClear: "夜晚 (晴)", colorDayRain: "白天 (雨)", colorNightRain: "夜晚 (雨)", styleSun: "太阳样式", styleMoon: "月亮样式", styleRain: "雨天样式", tapToToggle: "点击切换天气", bgColors: "背景颜色", elementColors: "元素与文本", colorSun: "太阳颜色", colorMoon: "月亮颜色", colorRain: "雨水颜色", colorText: "文本颜色", colorNavSelected: "激活导航", modeTitle: "应用模式", modeSimple: "简单模式", modeComplex: "复杂模式", modeBattery: "省电模式", humidity: "湿度", wind: "风速", uv: "紫外线指数", pollution: "污染指数", pressure: "气压", sunrise: "日出", sunset: "日落" },
-    FA: { gearDay: "تجهیزات: فقط عینک آفتابی", gearNight: "تجهیزات: چتر الزامی است", city: "لندن", uni: "دانشگاه کوئین مری", campus: "پردیس اصلی", optionsTitle: "تنظیمات و گزینه‌ها", langPrefTitle: "تنظیمات زبان", primaryLangLabel: "زبان اصلی", secondaryLangLabel: "زبان دوم (تغییر در سربرگ)", studentProfile: "پروفایل دانشجو", manageId: "مدیریت شناسه دانشگاه", notifications: "اعلان‌ها", weatherAlerts: "هشدارهای آب و هوای شدید", mapTitle: "نقشه پردیس", mapComingSoon: "ویژگی نقشه تعاملی در فاز 2 اضافه می‌شود!", themeTitle: "تم برنامه", themeDesc: "ظاهر برنامه خود را سفارشی کنید", themeDynamic: "پویا (آب و هوا)", themeMidnight: "تاریکی نیمه شب", themeSunset: "درخشش غروب", themeQMUL: "آبی QMUL", themeForest: "سبز جنگلی", themeProtanopia: "کوررنگی قرمز", themeDeuteranopia: "کوررنگی سبز", themeTritanopia: "کوررنگی آبی", previewTitle: "پیش‌نمایش زنده", themeCustom: "تم سفارشی", colorDayClear: "روز (صاف)", colorNightClear: "شب (صاف)", colorDayRain: "روز (بارانی)", colorNightRain: "شب (بارانی)", styleSun: "سبک خورشید", styleMoon: "سبک ماه", styleRain: "سبک باران", tapToToggle: "برای تغییر آب و هوا ضربه بزنید", bgColors: "رنگ‌های پس‌زمینه", elementColors: "عناصر و متن", colorSun: "رنگ خورشید", colorMoon: "رنگ ماه", colorRain: "رنگ باران", colorText: "رنگ متن", colorNavSelected: "ناوبری فعال", modeTitle: "حالت برنامه", modeSimple: "حالت ساده", modeComplex: "حالت پیشرفته", modeBattery: "ذخیره باتری", humidity: "رطوبت", wind: "باد", uv: "شاخص UV", pollution: "آلودگی", pressure: "فشار", sunrise: "طلوع آفتاب", sunset: "غروب آفتاب" },
-    AR: { gearDay: "المعدات: نظارات شمسية فقط", gearNight: "المعدات: مظلة مطلوبة", city: "لندن", uni: "جامعة كوين ماري", campus: "الحرم الجامعي الرئيسي", optionsTitle: "الإعدادات والخيارات", langPrefTitle: "تفضيلات اللغة", primaryLangLabel: "اللغة الأساسية", secondaryLangLabel: "اللغة الثانوية (تبديل في الأعلى)", studentProfile: "ملف الطالب", manageId: "إدارة معرف الجامعة", notifications: "الإشعارات", weatherAlerts: "تنبيهات الطقس القاسي", mapTitle: "خريطة الحرم الجامعي", mapComingSoon: "ميزة الخريطة التفاعلية قادمة في المرحلة الثانية!", themeTitle: "سمة التطبيق", themeDesc: "تخصيص مظهر التطبيق الخاص بك", themeDynamic: "ديناميكي (الطقس)", themeMidnight: "الظلام في منتصف الليل", themeSunset: "توهج الغروب", themeQMUL: "أزرق QMUL", themeForest: "أخضر الغابة", themeProtanopia: "عمى الألوان الأحمر", themeDeuteranopia: "عمى الألوان الأخضر", themeTritanopia: "عمى الألوان الأزرق", previewTitle: "معاينة حية", themeCustom: "سمة مخصصة", colorDayClear: "نهار (صافي)", colorNightClear: "ليل (صافي)", colorDayRain: "نهار (ممطر)", colorNightRain: "ليل (ممطر)", styleSun: "نمط الشمس", styleMoon: "نمط القمر", styleRain: "نمط المطر", tapToToggle: "انقر لتبديل الطقس", bgColors: "ألوان الخلفية", elementColors: "العناصر والنص", colorSun: "لون الشمس", colorMoon: "لون القمر", colorRain: "لون المطر", colorText: "لون النص", colorNavSelected: "التنقل النشط", modeTitle: "وضع التطبيق", modeSimple: "الوضع البسيط", modeComplex: "الوضع المتقدم", modeBattery: "توفير البطارية", humidity: "الرطوبة", wind: "الرياح", uv: "مؤشر UV", pollution: "التلوث", pressure: "الضغط", sunrise: "شروق الشمس", sunset: "غروب الشمس" },
-    HI: { gearDay: "गियर: केवल धूप का चश्मा", gearNight: "गियर: छाता आवश्यक है", city: "लंदन", uni: "क्वीन मैरी यूनिवर्सिटी", campus: "मुख्य परिसर", optionsTitle: "सेटिंग्स और विकल्प", langPrefTitle: "भाषा प्राथमिकताएँ", primaryLangLabel: "प्राथमिक भाषा", secondaryLangLabel: "द्वितीयक भाषा (हेडर टॉगल)", studentProfile: "छात्र प्रोफ़ाइल", manageId: "अपनी विश्वविद्यालय आईडी प्रबंधित करें", notifications: "सूचनाएं", weatherAlerts: "गंभीर मौसम की चेतावनी", mapTitle: "परिसर का नक्शा", mapComingSoon: "इंटरएक्टिव मैप सुविधा चरण 2 में आ रही है!", themeTitle: "ऐप थीम", themeDesc: "अपने ऐप का स्वरूप अनुकूलित करें", themeDynamic: "डायनामिक (मौसम)", themeMidnight: "मिडनाइट डार्क", themeSunset: "सनसेट ग्लो", themeQMUL: "QMUL ब्लू", themeForest: "फॉरेस्ट ग्रीन", themeProtanopia: "प्रोटानोपिया (लाल-अंधा)", themeDeuteranopia: "ड्यूटेरानोपिया (हरा-अंधा)", themeTritanopia: "ट्रिटानोपिया (नीला-अंधा)", previewTitle: "लाइव पूर्वावलोकन", themeCustom: "कस्टम थीम", colorDayClear: "दिन (साफ़)", colorNightClear: "रात (साफ़)", colorDayRain: "दिन (बारिश)", colorNightRain: "रात (बारिश)", styleSun: "सूर्य शैली", styleMoon: "चंद्रमा शैली", styleRain: "बारिश शैली", tapToToggle: "मौसम चक्र के लिए टैप करें", bgColors: "पृष्ठभूमि रंग", elementColors: "तत्व और पाठ", colorSun: "सूर्य का रंग", colorMoon: "चंद्रमा का रंग", colorRain: "बारिश का रंग", colorText: "टेक्स्ट का रंग", colorNavSelected: "सक्रिय नेव", modeTitle: "ऐप मोड", modeSimple: "सरल मोड", modeComplex: "जटिल मोड", modeBattery: "बैटरी सेवर", humidity: "नमी", wind: "हवा", uv: "यूवी इंडेक्स", pollution: "प्रदूषण", pressure: "दबाव", sunrise: "सूर्योदय", sunset: "सूर्यास्त" },
-    BN: { gearDay: "গিয়ার: শুধুমাত্র সানগ্লাস", gearNight: "গিয়ার: ছাতা প্রয়োজন", city: "লন্ডন", uni: "কুইন মেরি ইউনিভার্সিটি", campus: "মূল ক্যাম্পাস", optionsTitle: "সেটিংস এবং বিকল্প", langPrefTitle: "ভাষা পছন্দ", primaryLangLabel: "প্রাथमिक ভাষা", secondaryLangLabel: "মাধ্যমিক ভাষা (হেডার টগল)", studentProfile: "ছাত্র প্রোফাইল", manageId: "আপনার বিশ্ববিদ্যালয় আইডি পরিচালনা করুন", notifications: "বিজ্ঞপ্তি", weatherAlerts: "তীব্র আবহাওয়ার সতর্কতা", mapTitle: "ক্যাম্পাস মানচিত্র", mapComingSoon: "ইন্টারেক্টিভ মানচিত্র বৈশিষ্ট্য ফেজ 2 এ আসছে!", themeTitle: "অ্যাপ থিম", themeDesc: "আপনার অ্যাপের চেহারা কাস্টমাইজ করুন", themeDynamic: "ডায়নামিক (আবহাওয়া)", themeMidnight: "মিডনাইট ডার্ক", themeSunset: "সানসেট গ্লো", themeQMUL: "QMUL নীল", themeForest: "ফরেস্ট গ্রিন", themeProtanopia: "প্রোটানোপিয়া (লাল-অন্ধ)", themeDeuteranopia: "ডিউটেরানোপিয়া (সবুজ-অন্ধ)", themeTritanopia: "ট্রিটানোপিয়া (নীল-অন্ধ)", previewTitle: "লাইভ প্রিভিউ", themeCustom: "কাস্টম থিম", colorDayClear: "দিন (পরিষ্কার)", colorNightClear: "রাত (পরিষ্কার)", colorDayRain: "দিন (বৃষ্টি)", colorNightRain: "রাত (বৃষ্টি)", styleSun: "সূর্য শৈলী", styleMoon: "চাঁদ শৈলী", styleRain: "বৃষ্টি শৈলী", tapToToggle: "আবহাওয়া পরিবর্তন করতে আলতো চাপুন", bgColors: "পটভূমির রঙ", elementColors: "উপাদান এবং টেক্সট", colorSun: "সূর্যের রঙ", colorMoon: "চাঁদের রঙ", colorRain: "বৃষ্টির রঙ", colorText: "টেক্সটের রঙ", colorNavSelected: "সক্রিয় নেভ", modeTitle: "অ্যাপ মোড", modeSimple: "সাধারণ মোড", modeComplex: "জটিল মোড", modeBattery: "ব্যাটারি সেভার", humidity: "আর্দ্রতা", wind: "বাতাস", uv: "ইউভি সূচক", pollution: "দূষণ", pressure: "চাপ", sunrise: "সূর্যোদয়", sunset: "সূর্যাস্ত" }
+    EN: { gearClearDay: "Gear: Sunglasses only", gearClearNight: "Gear: Jacket recommended", gearRain: "Gear: Umbrella required", searchPlaceholder: "Search UK Campus...", optionsTitle: "Settings & Options", langPrefTitle: "Language Preferences", primaryLangLabel: "Primary Language", secondaryLangLabel: "Secondary Language (Header Toggle)", studentProfile: "Student Profile", manageId: "Manage your university ID", notifications: "Notifications", weatherAlerts: "Severe weather alerts", mapTitle: "Campus Map", mapComingSoon: "Interactive map feature coming in Phase 2!", themeTitle: "App Theme", themeDesc: "Customize your app's appearance", themeDynamic: "Dynamic (Weather)", themeMidnight: "Midnight Dark", themeSunset: "Sunset Glow", themeQMUL: "QMUL Blue", themeForest: "Forest Green", themeProtanopia: "Protanopia (Red-Blind)", themeDeuteranopia: "Deuteranopia (Green-Blind)", themeTritanopia: "Tritanopia (Blue-Blind)", previewTitle: "Live Preview", themeCustom: "Custom Theme", colorDayClear: "Day (Clear)", colorNightClear: "Night (Clear)", colorDayRain: "Day (Rain)", colorNightRain: "Night (Rain)", styleSun: "Sun Style", styleMoon: "Moon Style", styleRain: "Rain Style", tapToToggle: "Tap to cycle weather", bgColors: "Backgrounds", elementColors: "Elements & Text", colorSun: "Sun Color", colorMoon: "Moon Color", colorRain: "Rain Color", colorText: "Text Color", colorNavSelected: "Active Nav", modeTitle: "App Mode", modeSimple: "Simple Mode", modeComplex: "Complex Mode", modeBattery: "Battery Saver", humidity: "Humidity", wind: "Wind", uv: "UV Index", pollution: "Pollution (AQI)", pressure: "Pressure", sunrise: "Sunrise", sunset: "Sunset" },
+    TH: { gearClearDay: "อุปกรณ์: ใส่แว่นกันแดด", gearClearNight: "อุปกรณ์: แนะนำเสื้อแจ็คเก็ต", gearRain: "อุปกรณ์: ต้องการร่ม", searchPlaceholder: "ค้นหาวิทยาเขตในสหราชอาณาจักร...", optionsTitle: "การตั้งค่าและตัวเลือก", langPrefTitle: "การตั้งค่าภาษา", primaryLangLabel: "ภาษาหลัก", secondaryLangLabel: "ภาษารอง (สลับที่ส่วนหัว)", studentProfile: "โปรไฟล์นักศึกษา", manageId: "จัดการรหัสนักศึกษา", notifications: "การแจ้งเตือน", weatherAlerts: "เตือนสภาพอากาศรุนแรง", mapTitle: "แผนที่วิทยาเขต", mapComingSoon: "แผนที่แบบโต้ตอบจะมาในเฟส 2!", themeTitle: "ธีมแอป", themeDesc: "ปรับแต่งลักษณะแอปของคุณ", themeDynamic: "ไดนามิก (ตามสภาพอากาศ)", themeMidnight: "มิดไนท์ดาร์ก", themeSunset: "แสงอาทิตย์ตก", themeQMUL: "สีฟ้า QMUL", themeForest: "สีเขียวป่า", themeProtanopia: "ตาบอดสีแดง (Protanopia)", themeDeuteranopia: "ตาบอดสีเขียว (Deuteranopia)", themeTritanopia: "ตาบอดสีน้ำเงิน (Tritanopia)", previewTitle: "แสดงตัวอย่างสด", themeCustom: "ธีมกำหนดเอง", colorDayClear: "กลางวัน (แจ่มใส)", colorNightClear: "กลางคืน (แจ่มใส)", colorDayRain: "กลางวัน (ฝนตก)", colorNightRain: "กลางคืน (ฝนตก)", styleSun: "สไตล์พระอาทิตย์", styleMoon: "สไตล์พระจันทร์", styleRain: "สไตล์ฝน", tapToToggle: "แตะเพื่อสลับสภาพอากาศ", bgColors: "สีพื้นหลัง", elementColors: "องค์ประกอบและข้อความ", colorSun: "สีพระอาทิตย์", colorMoon: "สีพระจันทร์", colorRain: "สีฝน", colorText: "สีข้อความ", colorNavSelected: "สีเมนูที่เลือก", modeTitle: "โหมดแอป", modeSimple: "โหมดปกติ", modeComplex: "โหมดรายละเอียด", modeBattery: "ประหยัดแบตเตอรี่", humidity: "ความชื้น", wind: "ลม", uv: "ดัชนี UV", pollution: "มลพิษ", pressure: "ความกดอากาศ", sunrise: "พระอาทิตย์ขึ้น", sunset: "พระอาทิตย์ตก" },
+    ZH: { gearClearDay: "装备：仅需太阳镜", gearClearNight: "装备：建议穿外套", gearRain: "装备：需要雨伞", searchPlaceholder: "搜索英国校园...", optionsTitle: "设置与选项", langPrefTitle: "语言偏好", primaryLangLabel: "主要语言", secondaryLangLabel: "次要语言 (顶部切换)", studentProfile: "学生档案", manageId: "管理您的大学 ID", notifications: "通知", weatherAlerts: "恶劣天气警报", mapTitle: "校园地图", mapComingSoon: "交互式地图功能将在第二阶段推出！", themeTitle: "应用主题", themeDesc: "自定义您的应用外观", themeDynamic: "动态 (天气)", themeMidnight: "午夜深黑", themeSunset: "日落晚霞", themeQMUL: "QMUL 蓝", themeForest: "森林绿", themeProtanopia: "红色盲安全", themeDeuteranopia: "绿色盲安全", themeTritanopia: "蓝色盲安全", previewTitle: "实时预览", themeCustom: "自定义主题", colorDayClear: "白天 (晴)", colorNightClear: "夜晚 (晴)", colorDayRain: "白天 (雨)", colorNightRain: "夜晚 (雨)", styleSun: "太阳样式", styleMoon: "月亮样式", styleRain: "雨天样式", tapToToggle: "点击切换天气", bgColors: "背景颜色", elementColors: "元素与文本", colorSun: "太阳颜色", colorMoon: "月亮颜色", colorRain: "雨水颜色", colorText: "文本颜色", colorNavSelected: "激活导航", modeTitle: "应用模式", modeSimple: "简单模式", modeComplex: "复杂模式", modeBattery: "省电模式", humidity: "湿度", wind: "风速", uv: "紫外线指数", pollution: "污染指数", pressure: "气压", sunrise: "日出", sunset: "日落" },
+    FA: { gearClearDay: "تجهیزات: فقط عینک آفتابی", gearClearNight: "تجهیزات: ژاکت توصیه می‌شود", gearRain: "تجهیزات: چتر الزامی است", searchPlaceholder: "جستجوی پردیس بریتانیا...", optionsTitle: "تنظیمات و گزینه‌ها", langPrefTitle: "تنظیمات زبان", primaryLangLabel: "زبان اصلی", secondaryLangLabel: "زبان دوم (تغییر در سربرگ)", studentProfile: "پروفایل دانشجو", manageId: "مدیریت شناسه دانشگاه", notifications: "اعلان‌ها", weatherAlerts: "هشدارهای آب و هوای شدید", mapTitle: "نقشه پردیس", mapComingSoon: "ویژگی نقشه تعاملی در فاز 2 اضافه می‌شود!", themeTitle: "تم برنامه", themeDesc: "ظاهر برنامه خود را سفارشی کنید", themeDynamic: "پویا (آب و هوا)", themeMidnight: "تاریکی نیمه شب", themeSunset: "درخشش غروب", themeQMUL: "آبی QMUL", themeForest: "سبز جنگلی", themeProtanopia: "کوررنگی قرمز", themeDeuteranopia: "کوررنگی سبز", themeTritanopia: "کوررنگی آبی", previewTitle: "پیش‌نمایش زنده", themeCustom: "تم سفارشی", colorDayClear: "روز (صاف)", colorNightClear: "شب (صاف)", colorDayRain: "روز (بارانی)", colorNightRain: "شب (بارانی)", styleSun: "سبک خورشید", styleMoon: "سبک ماه", styleRain: "سبک باران", tapToToggle: "برای تغییر آب و هوا ضربه بزنید", bgColors: "رنگ‌های پس‌زمینه", elementColors: "عناصر و متن", colorSun: "رنگ خورشید", colorMoon: "رنگ ماه", colorRain: "رنگ باران", colorText: "رنگ متن", colorNavSelected: "ناوبری فعال", modeTitle: "حالت برنامه", modeSimple: "حالت ساده", modeComplex: "حالت پیشرفته", modeBattery: "ذخیره باتری", humidity: "رطوبت", wind: "باد", uv: "شاخص UV", pollution: "آلودگی", pressure: "فشار", sunrise: "طلوع آفتاب", sunset: "غروب آفتاب" },
+    AR: { gearClearDay: "المعدات: نظارات شمسية فقط", gearClearNight: "المعدات: ينصح بسترة", gearRain: "المعدات: مظلة مطلوبة", searchPlaceholder: "ابحث عن حرم جامعي في المملكة المتحدة...", optionsTitle: "الإعدادات والخيارات", langPrefTitle: "تفضيلات اللغة", primaryLangLabel: "اللغة الأساسية", secondaryLangLabel: "اللغة الثانوية (تبديل في الأعلى)", studentProfile: "ملف الطالب", manageId: "إدارة معرف الجامعة", notifications: "الإشعارات", weatherAlerts: "تنبيهات الطقس القاسي", mapTitle: "خريطة الحرم الجامعي", mapComingSoon: "ميزة الخريطة التفاعلية قادمة في المرحلة الثانية!", themeTitle: "سمة التطبيق", themeDesc: "تخصيص مظهر التطبيق الخاص بك", themeDynamic: "ديناميكي (الطقس)", themeMidnight: "الظلام في منتصف الليل", themeSunset: "توهج الغروب", themeQMUL: "أزرق QMUL", themeForest: "أخضر الغابة", themeProtanopia: "عمى الألوان الأحمر", themeDeuteranopia: "عمى الألوان الأخضر", themeTritanopia: "عمى الألوان الأزرق", previewTitle: "معاينة حية", themeCustom: "سمة مخصصة", colorDayClear: "نهار (صافي)", colorNightClear: "ليل (صافي)", colorDayRain: "نهار (ممطر)", colorNightRain: "ليل (ممطر)", styleSun: "نمط الشمس", styleMoon: "نمط القمر", styleRain: "نمط المطر", tapToToggle: "انقر لتبديل الطقس", bgColors: "ألوان الخلفية", elementColors: "العناصر والنص", colorSun: "لون الشمس", colorMoon: "لون القمر", colorRain: "لون المطر", colorText: "لون النص", colorNavSelected: "التنقل النشط", modeTitle: "وضع التطبيق", modeSimple: "الوضع البسيط", modeComplex: "الوضع المتقدم", modeBattery: "توفير البطارية", humidity: "الرطوبة", wind: "الرياح", uv: "مؤشر UV", pollution: "التلوث", pressure: "الضغط", sunrise: "شروق الشمس", sunset: "غروب الشمس" },
+    HI: { gearClearDay: "गियर: केवल धूप का चश्मा", gearClearNight: "गियर: जैकेट की सलाह", gearRain: "गियर: छाता आवश्यक है", searchPlaceholder: "यूके कैंपस खोजें...", optionsTitle: "सेटिंग्स और विकल्प", langPrefTitle: "भाषा प्राथमिकताएँ", primaryLangLabel: "प्राथमिक भाषा", secondaryLangLabel: "द्वितीयक भाषा (हेडर टॉगल)", studentProfile: "छात्र प्रोफ़ाइल", manageId: "अपनी विश्वविद्यालय आईडी प्रबंधित करें", notifications: "सूचनाएं", weatherAlerts: "गंभीर मौसम की चेतावनी", mapTitle: "परिसर का नक्शा", mapComingSoon: "इंटरएक्टिव मैप सुविधा चरण 2 में आ रही है!", themeTitle: "ऐप थीम", themeDesc: "अपने ऐप का स्वरूप अनुकूलित करें", themeDynamic: "डायनामिक (मौसम)", themeMidnight: "मिडनाइट डार्क", themeSunset: "सनसेट ग्लो", themeQMUL: "QMUL ब्लू", themeForest: "फॉरेस्ट ग्रीन", themeProtanopia: "प्रोटानोपिया (लाल-अंधा)", themeDeuteranopia: "ड्यूटेरानोपिया (हरा-अंधा)", themeTritanopia: "ट्रिटानोपिया (नीला-अंधा)", previewTitle: "लाइव पूर्वावलोकन", themeCustom: "कस्टम थीम", colorDayClear: "दिन (साफ़)", colorNightClear: "रात (साफ़)", colorDayRain: "दिन (बारिश)", colorNightRain: "रात (बारिश)", styleSun: "सूर्य शैली", styleMoon: "चंद्रमा शैली", styleRain: "बारिश शैली", tapToToggle: "मौसम चक्र के लिए टैप करें", bgColors: "पृष्ठभूमि रंग", elementColors: "तत्व और पाठ", colorSun: "सूर्य का रंग", colorMoon: "चंद्रमा का रंग", colorRain: "बारिश का रंग", colorText: "टेक्स्ट का रंग", colorNavSelected: "सक्रिय नेव", modeTitle: "ऐप मोड", modeSimple: "सरल मोड", modeComplex: "जटिल मोड", modeBattery: "बैटरी सेवर", humidity: "नमी", wind: "हवा", uv: "यूवी इंडेक्स", pollution: "प्रदूषण", pressure: "दबाव", sunrise: "सूर्योदय", sunset: "सूर्यास्त" },
+    BN: { gearClearDay: "গিয়ার: শুধুমাত্র সানগ্লাস", gearClearNight: "গিয়ার: জ্যাকেট প্রস্তাবিত", gearRain: "গিয়ার: ছাতা প্রয়োজন", searchPlaceholder: "ইউকে ক্যাম্পাস খুঁজুন...", optionsTitle: "সেটিংস এবং বিকল্প", langPrefTitle: "ভাষা পছন্দ", primaryLangLabel: "প্রাথমিক ভাষা", secondaryLangLabel: "মাধ্যমিক ভাষা (হেডার টগল)", studentProfile: "ছাত্র প্রোফাইল", manageId: "আপনার বিশ্ববিদ্যালয় আইডি পরিচালনা করুন", notifications: "বিজ্ঞপ্তি", weatherAlerts: "তীব্র আবহাওয়ার সতর্কতা", mapTitle: "ক্যাম্পাস মানচিত্র", mapComingSoon: "ইন্টারেক্টিভ মানচিত্র বৈশিষ্ট্য ফেজ 2 এ আসছে!", themeTitle: "অ্যাপ থিম", themeDesc: "আপনার অ্যাপের চেহারা কাস্টমাইজ করুন", themeDynamic: "ডায়নামিক (আবহাওয়া)", themeMidnight: "মিডনাইট ডার্ক", themeSunset: "সানসেট গ্লো", themeQMUL: "QMUL নীল", themeForest: "ফরেস্ট গ্রিন", themeProtanopia: "প্রোটানোপিয়া (লাল-অন্ধ)", themeDeuteranopia: "ডিউটেরানোপিয়া (সবুজ-অন্ধ)", themeTritanopia: "ট্রিটানোপিয়া (নীল-অন্ধ)", previewTitle: "লাইভ প্রিভিউ", themeCustom: "কাস্টম থিম", colorDayClear: "দিন (পরিষ্কার)", colorNightClear: "রাত (পরিষ্কার)", colorDayRain: "দিন (বৃষ্টি)", colorNightRain: "রাত (বৃষ্টি)", styleSun: "সূর্য শৈলী", styleMoon: "চাঁদ শৈলী", styleRain: "বৃষ্টি শৈলী", tapToToggle: "আবহাওয়া পরিবর্তন করতে আলতো চাপুন", bgColors: "পটভূমির রঙ", elementColors: "উপাদান এবং টেক্সট", colorSun: "সূর্যের রঙ", colorMoon: "চাঁদের রঙ", colorRain: "বৃষ্টির রঙ", colorText: "টেক্সটের রঙ", colorNavSelected: "সক্রিয় নেভ", modeTitle: "অ্যাপ মোড", modeSimple: "সাধারণ মোড", modeComplex: "জটিল মোড", modeBattery: "ব্যাটারি সেভার", humidity: "আর্দ্রতা", wind: "বাতাস", uv: "ইউভি সূচক", pollution: "দূষণ", pressure: "চাপ", sunrise: "সূর্যোদয়", sunset: "সূর্যাস্ত" }
   };
 
   const languages = [
@@ -182,7 +274,7 @@ export default function App() {
       <div className="flex-1 flex flex-col overflow-hidden relative">
         
         {/* HEADER (Language & Unit) */}
-        <div className="flex justify-between items-start p-6 md:p-8 pt-12 md:pt-8 w-full z-10">
+        <div className="flex justify-between items-start p-6 md:p-8 pt-12 md:pt-8 w-full z-20">
           <button onClick={toggleLanguage} className={`h-8 rounded shadow-md overflow-hidden hover:scale-105 transition-transform ${isBatterySave ? 'w-12 bg-gray-800 flex items-center justify-center border border-gray-600' : 'w-12 bg-white'}`} title="Toggle Language">
             {isBatterySave ? (
               <span className="text-white text-xs font-bold">{activeLang}</span>
@@ -190,6 +282,12 @@ export default function App() {
               <img src={`https://flagcdn.com/${activeFlagCode}.svg`} alt={`${activeLang} Flag`} className="w-full h-full object-cover"/>
             )}
           </button>
+
+          {apiError && (
+             <div className="bg-orange-500/20 border border-orange-500/50 text-orange-100 text-[10px] md:text-xs px-3 py-1 rounded-full backdrop-blur-sm animate-pulse text-center" title="Using offline mock data">
+               {apiError}
+             </div>
+          )}
 
           <button onClick={toggleUnit} className={`h-10 px-3 flex items-center justify-center gap-1 rounded-full transition-all font-bold shadow-sm ${isBatterySave ? 'bg-gray-800 border border-gray-600 text-white' : 'bg-white/20 hover:bg-white/30'}`} style={!isBatterySave ? (tc || {color: 'white'}) : {}}>
             <Thermometer size={20} />
@@ -202,10 +300,52 @@ export default function App() {
           
           {/* --- PAGE: HOME --- */}
           {activePage === 'home' && (
-            <div className="flex-1 flex flex-col pt-4 md:pt-10 pb-20 px-6 md:px-12 animate-in fade-in duration-500 max-w-4xl mx-auto w-full">
+            <div className={`flex-1 flex flex-col ${isComplex ? 'lg:flex-row lg:items-start lg:justify-center lg:gap-16 max-w-6xl' : 'items-center justify-start max-w-4xl'} pt-0 md:pt-4 pb-20 px-6 md:px-12 animate-in fade-in duration-500 mx-auto w-full min-h-full`}>
               
-              {/* Top Central Weather Section (Always Visible) */}
-              <div className="flex flex-col items-center justify-center flex-shrink-0 mb-8 mt-[-3rem]">
+              {/* Left Column / Central Weather Section */}
+              <div className={`flex flex-col items-center justify-center flex-shrink-0 w-full lg:w-auto ${isComplex ? 'mb-8 lg:mb-0' : 'mb-8'}`}>
+                
+                {/* NEW: Campus Search Bar */}
+                <div className="relative w-full max-w-sm mb-6 md:mb-10 z-30">
+                  <div className={`flex items-center px-4 py-3 rounded-full ${isBatterySave ? 'bg-gray-800 border border-gray-600' : 'bg-black/20 backdrop-blur-md border border-white/10'} transition-all shadow-lg`}>
+                    <Search size={20} className="text-white/70" style={tc ? {color: tc.color, opacity: 0.7} : {}} />
+                    <input
+                      type="text"
+                      placeholder={t.searchPlaceholder}
+                      value={searchQuery}
+                      onChange={(e) => { setSearchQuery(e.target.value); setIsSearching(true); }}
+                      onFocus={() => setIsSearching(true)}
+                      className="bg-transparent border-none outline-none placeholder-white/60 ml-3 w-full text-sm font-medium"
+                      style={tc || {color: 'white'}}
+                    />
+                  </div>
+                  
+                  {/* Search Dropdown */}
+                  {isSearching && searchQuery && (
+                    <div className={`absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden max-h-56 overflow-y-auto custom-scrollbar shadow-2xl ${isBatterySave ? 'bg-gray-900 border border-gray-700' : 'bg-slate-800/90 backdrop-blur-xl border border-white/20'}`}>
+                      {UK_UNIVERSITIES.filter(u => u.uni.toLowerCase().includes(searchQuery.toLowerCase()) || u.city.toLowerCase().includes(searchQuery.toLowerCase())).map((uni, idx) => (
+                        <div
+                          key={idx}
+                          className="px-5 py-4 hover:bg-white/10 cursor-pointer border-b border-white/5 last:border-0 transition-colors"
+                          onClick={() => {
+                            setSelectedLocation(uni);
+                            setSearchQuery('');
+                            setIsSearching(false);
+                          }}
+                        >
+                          <p className="font-bold text-sm" style={tc || {color: 'white'}}>{uni.uni}</p>
+                          <p className="text-xs mt-1" style={tc ? {color: tc.color, opacity: 0.8} : {color: '#93C5FD'}}>{uni.city} - {uni.campus}</p>
+                        </div>
+                      ))}
+                      {UK_UNIVERSITIES.filter(u => u.uni.toLowerCase().includes(searchQuery.toLowerCase()) || u.city.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                        <div className="px-5 py-4">
+                          <p className="text-sm opacity-70" style={tc || {color: 'white'}}>No campuses found...</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex flex-col items-center mb-6 text-center" style={tc || {color: 'white'}}>
                   <p className="text-xl md:text-2xl font-medium capitalize tracking-wide drop-shadow-md">
                     {currentTime.toLocaleDateString(activeLang.toLowerCase(), { weekday: 'long', day: 'numeric', month: 'long' })}
@@ -216,7 +356,11 @@ export default function App() {
                 </div>
 
                 <button onClick={cycleWeather} className="mb-6 hover:scale-105 transition-transform cursor-pointer" title="Tap to cycle weather states">
-                  {isRain ? (
+                  {isLoading ? (
+                    <div className="w-32 h-32 flex items-center justify-center">
+                      <Loader2 size={64} className="text-white animate-spin opacity-50" />
+                    </div>
+                  ) : isRain ? (
                     <div className="relative flex items-center justify-center">
                       {isDay ? <ActiveSun size={120} className="text-yellow-400 fill-yellow-400 absolute -top-4 -left-6" style={sunStyle} /> : <ActiveMoon size={120} className="text-yellow-300 fill-yellow-300 absolute -top-4 -left-6" style={moonStyle} />}
                       <ActiveRain size={130} className="text-gray-200 fill-gray-800 relative z-10" style={rainStyle} />
@@ -230,91 +374,94 @@ export default function App() {
                 </button>
 
                 <h1 className="text-[80px] md:text-[140px] font-bold leading-none tracking-tighter mb-4 shadow-black/10 drop-shadow-lg" style={tc || {color: 'white'}}>
-                  {getDisplayTemperature()}
+                  {isLoading ? "--°" : getDisplayTemperature()}
                 </h1>
 
                 <div className={`flex items-center gap-3 px-6 py-3 rounded-full mb-8 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-sm'}`}>
                   {isRain ? (
                      <Umbrella className="text-blue-400" size={32} />
-                  ) : (
+                  ) : isDay ? (
                      <Glasses className={`rounded-full p-1.5 ${isBatterySave ? 'text-white bg-gray-800' : 'text-gray-800 bg-white'}`} size={32} />
+                  ) : (
+                     <MoonStar className={`rounded-full p-1.5 ${isBatterySave ? 'text-white bg-gray-800' : 'text-gray-800 bg-white'}`} size={32} />
                   )}
                   <span className="font-medium text-lg md:text-xl tracking-wide" style={tc || {color: 'white'}}>
-                    {isRain ? t.gearNight : t.gearDay}
+                    {isRain ? t.gearRain : (isDay ? t.gearClearDay : t.gearClearNight)}
                   </span>
                 </div>
 
                 <div className="flex flex-col items-center gap-2">
                   <div className="flex items-center gap-2">
                     <Home className={isBatterySave ? "text-white" : "text-yellow-400"} size={28} style={appTheme === 'custom' && !isBatterySave ? tc : {}} />
-                    <h2 className="text-3xl md:text-4xl font-bold tracking-wide" style={tc || {color: 'white'}}>{t.city}</h2>
+                    {/* UPDATED: Dynamic City Name based on selected location */}
+                    <h2 className="text-3xl md:text-4xl font-bold tracking-wide" style={tc || {color: 'white'}}>{selectedLocation.city}</h2>
                   </div>
                   <div className="flex items-center gap-2 mt-2">
                     <span className={`text-3xl ${isBatterySave ? 'text-white' : 'text-yellow-400'}`} style={appTheme === 'custom' && !isBatterySave ? tc : {}}>♚</span>
-                    <div className="flex flex-col items-center md:items-start">
-                      <p className="font-semibold text-sm md:text-base" style={tc || {color: 'white'}}>{t.uni}</p>
-                      <p className="text-xs md:text-sm" style={tc || {color: 'rgba(219,234,254,1)'}}>{t.campus}</p>
+                    <div className="flex flex-col items-center md:items-start text-center md:text-left">
+                      {/* UPDATED: Dynamic University and Campus names */}
+                      <p className="font-semibold text-sm md:text-base" style={tc || {color: 'white'}}>{selectedLocation.uni}</p>
+                      <p className="text-xs md:text-sm" style={tc || {color: 'rgba(219,234,254,1)'}}>{selectedLocation.campus}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* NEW: Complex Mode Data Grid */}
-              {isComplex && (
-                <div className="w-full mt-6 animate-in slide-in-from-bottom-8 duration-700">
-                  <div className="w-16 h-1 bg-white/20 rounded-full mx-auto mb-6"></div>
+              {/* Right Column / Complex Mode Data Grid */}
+              {isComplex && weatherData && (
+                <div className="w-full lg:w-[480px] lg:mt-24 mt-6 animate-in slide-in-from-bottom-8 lg:slide-in-from-right-8 duration-700 flex-shrink-0 z-10">
+                  <div className="w-16 h-1 bg-white/20 rounded-full mx-auto mb-6 lg:hidden"></div>
                   
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
-                    {/* Sunrise & Sunset combine well on desktop */}
+                  <div className="grid grid-cols-2 gap-3 md:gap-4">
                     <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
                       <Sunrise size={22} className="text-yellow-300" style={appTheme === 'custom' && !isBatterySave ? sunStyle : {}} />
                       <div>
                         <p className="text-xs opacity-80" style={tc || {color: 'white'}}>{t.sunrise}</p>
-                        <p className="text-lg font-bold" style={tc || {color: 'white'}}>{mockComplexData.sunrise}</p>
+                        <p className="text-lg font-bold" style={tc || {color: 'white'}}>{weatherData.sunrise}</p>
                       </div>
                     </div>
                     <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
                       <Sunset size={22} className="text-orange-400" />
                       <div>
                         <p className="text-xs opacity-80" style={tc || {color: 'white'}}>{t.sunset}</p>
-                        <p className="text-lg font-bold" style={tc || {color: 'white'}}>{mockComplexData.sunset}</p>
+                        <p className="text-lg font-bold" style={tc || {color: 'white'}}>{weatherData.sunset}</p>
                       </div>
                     </div>
                     <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
                       <Droplets size={22} className="text-blue-300" style={appTheme === 'custom' && !isBatterySave ? rainStyle : {}} />
                       <div>
                         <p className="text-xs opacity-80" style={tc || {color: 'white'}}>{t.humidity}</p>
-                        <p className="text-lg font-bold" style={tc || {color: 'white'}}>{mockComplexData.humidity}</p>
+                        <p className="text-lg font-bold" style={tc || {color: 'white'}}>{weatherData.humidity}</p>
                       </div>
                     </div>
                     <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
                       <Wind size={22} className="text-teal-200" />
                       <div>
                         <p className="text-xs opacity-80" style={tc || {color: 'white'}}>{t.wind}</p>
-                        <p className="text-lg font-bold" style={tc || {color: 'white'}}>{mockComplexData.wind}</p>
+                        <p className="text-lg font-bold" style={tc || {color: 'white'}}>{weatherData.wind}</p>
                       </div>
                     </div>
                     <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
                       <Activity size={22} className="text-purple-300" />
                       <div>
                         <p className="text-xs opacity-80" style={tc || {color: 'white'}}>{t.uv}</p>
-                        <p className="text-lg font-bold" style={tc || {color: 'white'}}>{mockComplexData.uv}</p>
+                        <p className="text-lg font-bold" style={tc || {color: 'white'}}>{weatherData.uv}</p>
                       </div>
                     </div>
                     <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
                       <CloudFog size={22} className="text-gray-300" />
                       <div>
                         <p className="text-xs opacity-80" style={tc || {color: 'white'}}>{t.pollution}</p>
-                        <p className="text-sm font-bold" style={tc || {color: 'white'}}>{mockComplexData.pollution}</p>
+                        <p className="text-sm font-bold" style={tc || {color: 'white'}}>{weatherData.pollution}</p>
                       </div>
                     </div>
-                    <div className={`p-4 rounded-2xl flex flex-col gap-2 col-span-2 md:col-span-3 lg:col-span-6 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
+                    <div className={`p-4 rounded-2xl flex flex-col gap-2 col-span-2 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
                       <div className="flex justify-between items-center w-full">
                         <div className="flex gap-2 items-center">
                           <Gauge size={22} className="text-green-300" />
                           <div>
                             <p className="text-xs opacity-80" style={tc || {color: 'white'}}>{t.pressure}</p>
-                            <p className="text-lg font-bold" style={tc || {color: 'white'}}>{mockComplexData.pressure}</p>
+                            <p className="text-lg font-bold" style={tc || {color: 'white'}}>{weatherData.pressure}</p>
                           </div>
                         </div>
                         <div className="flex gap-2">
@@ -338,32 +485,34 @@ export default function App() {
                 {t.optionsTitle}
               </h2>
               
-              {/* UPDATED: Mode Selection UI now includes Complex */}
               <div className={`p-5 rounded-2xl flex flex-col gap-4 mb-4 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-sm'}`}>
                 <div className="flex items-center gap-2 mb-1">
                   <Activity size={22} className={isBatterySave ? "text-green-500" : "text-yellow-400"} style={appTheme === 'custom' && !isBatterySave ? tc : {}} />
                   <p className="font-semibold text-lg" style={tc || {color: 'white'}}>{t.modeTitle}</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                
+                {/* UPDATED: Split Mode Selection into Layout (Simple/Complex) and Power (Battery Toggle) */}
+                <div className="grid grid-cols-2 gap-3 mb-2">
                   <button 
                     onClick={() => setAppMode('simple')} 
-                    className={`py-2.5 rounded-xl border text-sm md:text-base font-bold transition-all ${appMode === 'simple' ? 'bg-yellow-400 text-black border-yellow-400 shadow-lg shadow-yellow-400/20' : (isBatterySave ? 'border-gray-600 text-white hover:bg-gray-800' : 'border-white/20 text-white hover:bg-white/10')}`}
+                    className={`py-2.5 rounded-xl border text-sm md:text-base font-bold transition-all ${appMode === 'simple' ? (!isBatterySave ? 'bg-yellow-400 text-black border-yellow-400 shadow-lg shadow-yellow-400/20' : 'bg-gray-700 text-white border-gray-500 shadow-lg') : (isBatterySave ? 'border-gray-800 text-gray-500 hover:bg-gray-800' : 'border-white/20 text-white/70 hover:bg-white/10')}`}
                   >
                     {t.modeSimple}
                   </button>
                   <button 
                     onClick={() => setAppMode('complex')} 
-                    className={`py-2.5 rounded-xl border text-sm md:text-base font-bold transition-all ${appMode === 'complex' ? 'bg-yellow-400 text-black border-yellow-400 shadow-lg shadow-yellow-400/20' : (isBatterySave ? 'border-gray-600 text-white hover:bg-gray-800' : 'border-white/20 text-white hover:bg-white/10')}`}
+                    className={`py-2.5 rounded-xl border text-sm md:text-base font-bold transition-all ${appMode === 'complex' ? (!isBatterySave ? 'bg-yellow-400 text-black border-yellow-400 shadow-lg shadow-yellow-400/20' : 'bg-gray-700 text-white border-gray-500 shadow-lg') : (isBatterySave ? 'border-gray-800 text-gray-500 hover:bg-gray-800' : 'border-white/20 text-white/70 hover:bg-white/10')}`}
                   >
                     {t.modeComplex}
                   </button>
-                  <button 
-                    onClick={() => setAppMode('battery-save')} 
-                    className={`py-2.5 rounded-xl border text-sm md:text-base font-bold transition-all flex items-center justify-center gap-2 ${appMode === 'battery-save' ? 'bg-green-500 text-black border-green-500 shadow-lg shadow-green-500/20' : 'border-white/20 text-white hover:bg-white/10'}`}
-                  >
-                    <Battery size={18} /> {t.modeBattery}
-                  </button>
                 </div>
+                
+                <button 
+                  onClick={() => setIsBatterySave(!isBatterySave)} 
+                  className={`py-2.5 rounded-xl border text-sm md:text-base font-bold transition-all flex items-center justify-center gap-2 ${isBatterySave ? 'bg-green-500 text-black border-green-500 shadow-lg shadow-green-500/20' : 'border-white/20 text-white hover:bg-white/10'}`}
+                >
+                  <Battery size={18} /> {t.modeBattery} {isBatterySave ? ': ON' : ': OFF'}
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -443,9 +592,9 @@ export default function App() {
                 </div>
                 <div onClick={cycleWeather} className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5 flex items-center justify-between shadow-lg cursor-pointer hover:bg-white/20 hover:scale-[1.02] active:scale-95 transition-all">
                   <div>
-                    <h3 className="text-4xl md:text-5xl font-bold mb-1" style={tc || {color: 'white'}}>{getDisplayTemperature()}</h3>
+                    <h3 className="text-4xl md:text-5xl font-bold mb-1" style={tc || {color: 'white'}}>{isLoading ? "--°" : getDisplayTemperature()}</h3>
                     <div className="flex items-center gap-1.5 text-sm md:text-base" style={tc || {color: 'rgba(255,255,255,0.9)'}}>
-                      <Home size={16} /> {t.city}
+                      <Home size={16} /> {selectedLocation.city}
                     </div>
                   </div>
                   <div className="bg-white/10 p-4 rounded-full flex items-center justify-center">
