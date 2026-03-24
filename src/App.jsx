@@ -30,7 +30,6 @@ const UK_UNIVERSITIES = [
 export default function App() {
   // --- OPENWEATHER API CONFIGURATION ---
   const API_KEY = '606defed52591c2c7c1e350903d8e8e7'; // OpenWeather API Key
-  //const API_KEY = ''; // OpenWeather API Key
 
   // --- STATE MANAGEMENT ---
   const [isDay, setIsDay] = useState(true);
@@ -75,6 +74,7 @@ export default function App() {
   const [primaryLang, setPrimaryLang] = useState('EN');
   const [secondaryLang, setSecondaryLang] = useState('ZH'); 
   const [activeLang, setActiveLang] = useState('EN');
+  const [isViewingPrimary, setIsViewingPrimary] = useState(true); // NEW: Tracks which language slot is currently active
 
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -84,10 +84,10 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // Language Effect
+  // UPDATED: Language Effect now perfectly syncs whenever either dropdown is changed!
   useEffect(() => {
-    setActiveLang(primaryLang);
-  }, [primaryLang]);
+    setActiveLang(isViewingPrimary ? primaryLang : secondaryLang);
+  }, [isViewingPrimary, primaryLang, secondaryLang]);
 
   // --- API FETCH EFFECT ---
   useEffect(() => {
@@ -234,9 +234,13 @@ export default function App() {
     else setUnit('C');
   };
 
+  // UPDATED: Toggles the viewing slot rather than hardcoded strings
   const toggleLanguage = () => {
-    setActiveLang(activeLang === primaryLang ? secondaryLang : primaryLang);
+    setIsViewingPrimary(!isViewingPrimary);
   };
+
+  // NEW: Detect if the active language is Right-To-Left (Arabic or Persian)
+  const isRTL = activeLang === 'AR' || activeLang === 'FA';
 
   const ActiveSun = sunIconMap[customIcons.sun] || Sun;
   const ActiveMoon = moonIconMap[customIcons.moon] || Moon;
@@ -253,11 +257,13 @@ export default function App() {
   // --- UI RENDERING ---
   return (
     <div 
+      // 1. REMOVED the dir attribute from here so the outer structure stays Left-to-Right
       className={`relative w-full h-screen overflow-hidden flex flex-col md:flex-row transition-colors duration-700 font-sans ${getThemeBackground()}`}
       style={{ backgroundColor: getCustomBackgroundColor() }}
     >
       
       {/* Sidebar / Bottom Nav */}
+      {/* 2. REVERTED the border dynamically shifting, it should always be border-r now since sidebar is always on the left */}
       <div className={`h-20 md:h-full w-full md:w-24 flex flex-row md:flex-col items-center justify-around md:justify-center md:gap-12 px-4 md:py-8 border-t md:border-t-0 md:border-r border-white/10 order-last md:order-first z-20 ${isBatterySave ? 'bg-gray-900' : 'bg-black/10 backdrop-blur-md'}`}>
         <button onClick={() => setActivePage('home')} className={`flex flex-col items-center gap-1 transition-transform ${activePage === 'home' ? 'scale-110' : 'hover:scale-110'}`} style={activePage === 'home' ? activeNavStyle : inactiveNavStyle}>
           <Home size={28} />
@@ -271,10 +277,12 @@ export default function App() {
       </div>
 
       {/* MAIN CONTENT AREA */}
-      <div className="flex-1 flex flex-col overflow-hidden relative">
+      {/* 3. ADDED the dynamic dir attribute here! This makes only the inner content mirror for Arabic/Persian */}
+      <div dir={isRTL ? 'rtl' : 'ltr'} className="flex-1 flex flex-col overflow-hidden relative">
         
         {/* HEADER (Language & Unit) */}
-        <div className="flex justify-between items-start p-6 md:p-8 pt-12 md:pt-8 w-full z-20">
+        {/* 4. FORCED this specific header to "ltr" so the Flag stays left and the Degree stays right */}
+        <div dir="ltr" className="flex justify-between items-start p-6 md:p-8 pt-12 md:pt-8 w-full z-20">
           <button onClick={toggleLanguage} className={`h-8 rounded shadow-md overflow-hidden hover:scale-105 transition-transform ${isBatterySave ? 'w-12 bg-gray-800 flex items-center justify-center border border-gray-600' : 'w-12 bg-white'}`} title="Toggle Language">
             {isBatterySave ? (
               <span className="text-white text-xs font-bold">{activeLang}</span>
@@ -315,7 +323,7 @@ export default function App() {
                       value={searchQuery}
                       onChange={(e) => { setSearchQuery(e.target.value); setIsSearching(true); }}
                       onFocus={() => setIsSearching(true)}
-                      className="bg-transparent border-none outline-none placeholder-white/60 ml-3 w-full text-sm font-medium"
+                      className={`bg-transparent border-none outline-none placeholder-white/60 ${isRTL ? 'mr-3' : 'ml-3'} w-full text-sm font-medium`}
                       style={tc || {color: 'white'}}
                     />
                   </div>
@@ -362,13 +370,13 @@ export default function App() {
                     </div>
                   ) : isRain ? (
                     <div className="relative flex items-center justify-center">
-                      {isDay ? <ActiveSun size={120} className="text-yellow-400 fill-yellow-400 absolute -top-4 -left-6" style={sunStyle} /> : <ActiveMoon size={120} className="text-yellow-300 fill-yellow-300 absolute -top-4 -left-6" style={moonStyle} />}
+                      {isDay ? <ActiveSun size={120} className={`text-yellow-400 fill-yellow-400 absolute -top-4 ${isRTL ? '-right-6' : '-left-6'}`} style={sunStyle} /> : <ActiveMoon size={120} className={`text-yellow-300 fill-yellow-300 absolute -top-4 ${isRTL ? '-right-6' : '-left-6'}`} style={moonStyle} />}
                       <ActiveRain size={130} className="text-gray-200 fill-gray-800 relative z-10" style={rainStyle} />
                     </div>
                   ) : (
                     <div className="relative">
                       {isDay ? <ActiveSun size={130} className="text-yellow-400 fill-yellow-400" style={sunStyle} /> : <ActiveMoon size={130} className="text-yellow-300 fill-yellow-300" style={moonStyle} />}
-                      {isDay && !isBatterySave && <div className="absolute top-12 -right-4 bg-white w-14 h-10 rounded-full opacity-90"></div>}
+                      {isDay && !isBatterySave && <div className={`absolute top-12 ${isRTL ? '-left-4' : '-right-4'} bg-white w-14 h-10 rounded-full opacity-90`}></div>}
                     </div>
                   )}
                 </button>
@@ -398,7 +406,7 @@ export default function App() {
                   </div>
                   <div className="flex items-center gap-2 mt-2">
                     <span className={`text-3xl ${isBatterySave ? 'text-white' : 'text-yellow-400'}`} style={appTheme === 'custom' && !isBatterySave ? tc : {}}>♚</span>
-                    <div className="flex flex-col items-center md:items-start text-center md:text-left">
+                    <div className={`flex flex-col items-center md:items-start text-center ${isRTL ? 'md:text-right' : 'md:text-left'}`}>
                       {/* UPDATED: Dynamic University and Campus names */}
                       <p className="font-semibold text-sm md:text-base" style={tc || {color: 'white'}}>{selectedLocation.uni}</p>
                       <p className="text-xs md:text-sm" style={tc || {color: 'rgba(219,234,254,1)'}}>{selectedLocation.campus}</p>
@@ -409,7 +417,7 @@ export default function App() {
 
               {/* Right Column / Complex Mode Data Grid */}
               {isComplex && weatherData && (
-                <div className="w-full lg:w-[480px] lg:mt-24 mt-6 animate-in slide-in-from-bottom-8 lg:slide-in-from-right-8 duration-700 flex-shrink-0 z-10">
+                <div className={`w-full lg:w-[480px] lg:mt-24 mt-6 animate-in slide-in-from-bottom-8 ${isRTL ? 'lg:slide-in-from-left-8' : 'lg:slide-in-from-right-8'} duration-700 flex-shrink-0 z-10`}>
                   <div className="w-16 h-1 bg-white/20 rounded-full mx-auto mb-6 lg:hidden"></div>
                   
                   <div className="grid grid-cols-2 gap-3 md:gap-4">
@@ -600,7 +608,7 @@ export default function App() {
                   <div className="bg-white/10 p-4 rounded-full flex items-center justify-center">
                     {isRain ? (
                       <div className="relative w-10 h-10 flex items-center justify-center">
-                        {isDay ? <ActiveSun size={24} className="text-yellow-400 fill-yellow-400 absolute -top-1 -left-2" style={sunStyle} /> : <ActiveMoon size={24} className="text-yellow-300 fill-yellow-300 absolute -top-1 -left-2" style={moonStyle} />}
+                        {isDay ? <ActiveSun size={24} className={`text-yellow-400 fill-yellow-400 absolute -top-1 ${isRTL ? '-right-2' : '-left-2'}`} style={sunStyle} /> : <ActiveMoon size={24} className={`text-yellow-300 fill-yellow-300 absolute -top-1 ${isRTL ? '-right-2' : '-left-2'}`} style={moonStyle} />}
                         <ActiveRain size={32} className="text-gray-200 fill-gray-400 relative z-10" style={rainStyle} />
                       </div>
                     ) : (
@@ -631,7 +639,7 @@ export default function App() {
                   >
                     <div className={`absolute inset-0 opacity-50 ${themeOpt.color}`}></div>
                     <div className="relative z-10 flex flex-col items-center gap-2">
-                      {appTheme === themeOpt.id && <CheckCircle2 size={24} className="text-yellow-400 absolute -top-3 right-[-24px]" />}
+                      {appTheme === themeOpt.id && <CheckCircle2 size={24} className={`text-yellow-400 absolute -top-3 ${isRTL ? 'left-[-24px]' : 'right-[-24px]'}`} />}
                       <span className="font-medium text-center text-sm md:text-base" style={tc || {color: 'white'}}>{themeOpt.name}</span>
                     </div>
                   </button>
