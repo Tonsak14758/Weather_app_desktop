@@ -43,6 +43,7 @@ export default function App() {
   const [selectedLocation, setSelectedLocation] = useState(UK_UNIVERSITIES[0]); 
 
   const [weatherData, setWeatherData] = useState(null);
+  const [forecastData, setForecastData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState(null);
 
@@ -156,6 +157,24 @@ export default function App() {
         setIsRain(isRainingNow);
         setApiError(null);
 
+        const fRes = await fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${selectedLocation.queryStr}&appid=${API_KEY}&units=metric`);
+        const fJson = await fRes.json();
+        const dailyMap = {};
+        fJson.list.forEach(item => {
+          const key = new Date(item.dt * 1000).toDateString();
+          if (!dailyMap[key]) dailyMap[key] = { date: new Date(item.dt * 1000), highs: [], lows: [], icons: [] };
+          dailyMap[key].highs.push(item.main.temp_max);
+          dailyMap[key].lows.push(item.main.temp_min);
+          dailyMap[key].icons.push(item.weather[0].icon);
+        });
+        const processed = Object.values(dailyMap).slice(0, 6).map(d => ({
+          date: d.date,
+          high: Math.round(Math.max(...d.highs)),
+          low: Math.round(Math.min(...d.lows)),
+          icon: d.icons[Math.floor(d.icons.length / 2)].replace('n', 'd')
+        }));
+        setForecastData(processed);
+
       } catch (error) {
         console.warn("Open-Meteo API Notice:", error.message);
         loadMockData("API Offline");
@@ -185,6 +204,12 @@ export default function App() {
             { dateRaw: "2026-04-01", minTemp: 11, maxTemp: 18, weatherCode: 0 }
           ]
         });
+        const today = new Date();
+        const mockIcons = ['01d','02d','10d','03d','04d','01d'];
+        setForecastData(Array.from({ length: 6 }, (_, i) => {
+          const d = new Date(today); d.setDate(today.getDate() + i);
+          return { date: d, high: [11,10,13,11,11,12][i], low: [7,6,4,3,7,5][i], icon: mockIcons[i] };
+        }));
     };
 
     fetchWeather();
@@ -498,6 +523,28 @@ export default function App() {
                     </div>
                   </div>
                 </div>
+
+                {forecastData.length > 0 && (
+                  <div className="w-full mt-8 overflow-x-auto pb-2">
+                    <div className="flex gap-2 min-w-max mx-auto">
+                      {forecastData.map((day, idx) => {
+                        const isToday = idx === 0;
+                        const label = isToday ? 'Today' : day.date.toLocaleDateString([], { weekday: 'short' });
+                        const high = unit==='F' ? Math.round(day.high*9/5+32) : unit==='K' ? Math.round(day.high+273.15) : day.high;
+                        const low  = unit==='F' ? Math.round(day.low*9/5+32)  : unit==='K' ? Math.round(day.low+273.15)  : day.low;
+                        return (
+                          <div key={idx} className={`flex flex-col items-center gap-1 px-3 py-3 rounded-2xl min-w-[72px] border ${isBatterySave ? (isToday ? 'bg-gray-700 border-gray-500' : 'bg-gray-900 border-gray-800') : (isToday ? 'bg-white/25 border-white/40' : 'bg-black/15 border-white/10')}`}>
+                            <p className="text-sm font-bold" style={tc||{color:'white'}}>{day.date.getDate()}</p>
+                            <p className="text-[11px] opacity-70" style={tc||{color:'white'}}>{label}</p>
+                            <img src={`https://openweathermap.org/img/wn/${day.icon}@2x.png`} alt="" className="w-12 h-12 -my-1" />
+                            <p className="text-sm font-bold" style={tc||{color:'white'}}>{high}°</p>
+                            <p className="text-xs opacity-55" style={tc||{color:'white'}}>{low}°</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Right Column / Complex Mode Data Grid & Forecast */}
