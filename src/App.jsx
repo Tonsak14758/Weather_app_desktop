@@ -157,23 +157,7 @@ export default function App() {
         setIsRain(isRainingNow);
         setApiError(null);
 
-        const fRes = await fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${selectedLocation.queryStr}&appid=${API_KEY}&units=metric`);
-        const fJson = await fRes.json();
-        const dailyMap = {};
-        fJson.list.forEach(item => {
-          const key = new Date(item.dt * 1000).toDateString();
-          if (!dailyMap[key]) dailyMap[key] = { date: new Date(item.dt * 1000), highs: [], lows: [], icons: [] };
-          dailyMap[key].highs.push(item.main.temp_max);
-          dailyMap[key].lows.push(item.main.temp_min);
-          dailyMap[key].icons.push(item.weather[0].icon);
-        });
-        const processed = Object.values(dailyMap).slice(0, 6).map(d => ({
-          date: d.date,
-          high: Math.round(Math.max(...d.highs)),
-          low: Math.round(Math.min(...d.lows)),
-          icon: d.icons[Math.floor(d.icons.length / 2)].replace('n', 'd')
-        }));
-        setForecastData(processed);
+        setForecastData(forecastArr.map(d => ({ ...d, date: new Date(d.dateRaw) })));
 
       } catch (error) {
         console.warn("Open-Meteo API Notice:", error.message);
@@ -205,10 +189,9 @@ export default function App() {
           ]
         });
         const today = new Date();
-        const mockIcons = ['01d','02d','10d','03d','04d','01d'];
         setForecastData(Array.from({ length: 6 }, (_, i) => {
-          const d = new Date(today); d.setDate(today.getDate() + i);
-          return { date: d, high: [11,10,13,11,11,12][i], low: [7,6,4,3,7,5][i], icon: mockIcons[i] };
+          const d = new Date(today); d.setDate(today.getDate() + i + 1);
+          return { date: d, maxTemp: [11,10,13,11,11,12][i], minTemp: [7,6,4,3,7,5][i], weatherCode: [0,2,61,3,4,0][i] };
         }));
     };
 
@@ -338,6 +321,18 @@ export default function App() {
     currentRainColor = '#00BFA5'; 
     currentNavActive = '#00BFA5'; 
   }
+
+  const wmoToEmoji = (code) => {
+    if (code === 0) return '☀️';
+    if (code <= 3) return '⛅';
+    if (code <= 48) return '🌫️';
+    if (code <= 57) return '🌦️';
+    if (code <= 67) return '🌧️';
+    if (code <= 77) return '❄️';
+    if (code <= 82) return '🌧️';
+    if (code <= 86) return '🌨️';
+    return '⛈️';
+  };
 
   const tc = { color: currentTextColor };
   const sunStyle = { color: currentSunColor, fill: currentSunColor };
@@ -530,15 +525,15 @@ export default function App() {
                       {forecastData.map((day, idx) => {
                         const isToday = idx === 0;
                         const label = isToday ? 'Today' : day.date.toLocaleDateString([], { weekday: 'short' });
-                        const high = unit==='F' ? Math.round(day.high*9/5+32) : unit==='K' ? Math.round(day.high+273.15) : day.high;
-                        const low  = unit==='F' ? Math.round(day.low*9/5+32)  : unit==='K' ? Math.round(day.low+273.15)  : day.low;
+                        const high = unit==='F' ? Math.round(day.maxTemp*9/5+32) : unit==='K' ? Math.round(day.maxTemp+273.15) : Math.round(day.maxTemp);
+                        const low  = unit==='F' ? Math.round(day.minTemp*9/5+32) : unit==='K' ? Math.round(day.minTemp+273.15) : Math.round(day.minTemp);
                         return (
                           <div key={idx} className={`flex flex-col items-center gap-1 px-3 py-3 rounded-2xl min-w-[72px] border ${isBatterySave ? (isToday ? 'bg-gray-700 border-gray-500' : 'bg-gray-900 border-gray-800') : (isToday ? 'bg-white/25 border-white/40' : 'bg-black/15 border-white/10')}`}>
-                            <p className="text-sm font-bold" style={tc||{color:'white'}}>{day.date.getDate()}</p>
-                            <p className="text-[11px] opacity-70" style={tc||{color:'white'}}>{label}</p>
-                            <img src={`https://openweathermap.org/img/wn/${day.icon}@2x.png`} alt="" className="w-12 h-12 -my-1" />
-                            <p className="text-sm font-bold" style={tc||{color:'white'}}>{high}°</p>
-                            <p className="text-xs opacity-55" style={tc||{color:'white'}}>{low}°</p>
+                            <p className="text-sm font-bold" style={tc}>{day.date.getDate()}</p>
+                            <p className="text-[11px] opacity-70" style={tc}>{label}</p>
+                            <span className="text-4xl">{wmoToEmoji(day.weatherCode)}</span>
+                            <p className="text-sm font-bold" style={tc}>{high}°</p>
+                            <p className="text-xs opacity-55" style={tc}>{low}°</p>
                           </div>
                         );
                       })}
