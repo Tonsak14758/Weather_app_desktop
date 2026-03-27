@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Sun, SunDim, SunMedium, Sunrise, Sunset, CloudSun, Flame, Sparkles, Target, Aperture,
   Moon, MoonStar, CloudMoon, Star, StarHalf, Circle, Disc, Shield, Hexagon,
@@ -11,7 +11,124 @@ import {
   Gauge, ArrowUp, Loader2, Search
 } from 'lucide-react';
 
-// NEW: 10 Highly Specific Icons for ALL 7 Weather Categories
+// Integrated CampusMap Component using CDN Leaflet to avoid module resolution errors
+function CampusMap({ userLocation, campusLocation, currentCity, t, isRTL }) {
+  const [mapError, setMapError] = useState(false);
+  const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const mapRef = useRef(null);
+  const mapInstance = useRef(null);
+  const userMarker = useRef(null);
+  const campusMarker = useRef(null);
+  
+  const defaultCenter = userLocation || campusLocation;
+  const defaultZoom = userLocation ? 15 : 13;
+
+  // Dynamically load Leaflet CSS and JS
+  useEffect(() => {
+    if (!document.getElementById('leaflet-css')) {
+      const link = document.createElement('link');
+      link.id = 'leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+    if (!document.getElementById('leaflet-js')) {
+      const script = document.createElement('script');
+      script.id = 'leaflet-js';
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.onload = () => setLeafletLoaded(true);
+      document.head.appendChild(script);
+    } else {
+      if (window.L) setLeafletLoaded(true);
+      else document.getElementById('leaflet-js').addEventListener('load', () => setLeafletLoaded(true));
+    }
+
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      }
+    };
+  }, []);
+
+  // Initialize and update map
+  useEffect(() => {
+    if (!leafletLoaded || !mapRef.current || !defaultCenter) return;
+
+    if (!mapInstance.current) {
+      try {
+        mapInstance.current = window.L.map(mapRef.current).setView([defaultCenter.lat, defaultCenter.lng], defaultZoom);
+        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(mapInstance.current);
+
+        // Fix for default marker icons missing in CDN setup
+        delete window.L.Icon.Default.prototype._getIconUrl;
+        window.L.Icon.Default.mergeOptions({
+          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+        });
+      } catch (e) {
+        setMapError(true);
+        return;
+      }
+    } else {
+      mapInstance.current.setView([defaultCenter.lat, defaultCenter.lng], defaultZoom);
+    }
+
+    // Update user marker with translated popups and RTL support
+    if (userLocation?.lat) {
+      if (!userMarker.current) {
+        userMarker.current = window.L.marker([userLocation.lat, userLocation.lng]).addTo(mapInstance.current)
+          .bindPopup(`<div dir="${isRTL ? 'rtl' : 'ltr'}" style="text-align: ${isRTL ? 'right' : 'left'}"><b>${t.mapYourLocation}</b><br/>${t.mapYouAreHere}</div>`);
+      } else {
+        userMarker.current.setLatLng([userLocation.lat, userLocation.lng])
+          .bindPopup(`<div dir="${isRTL ? 'rtl' : 'ltr'}" style="text-align: ${isRTL ? 'right' : 'left'}"><b>${t.mapYourLocation}</b><br/>${t.mapYouAreHere}</div>`);
+      }
+    }
+
+    // Update campus marker
+    if (campusLocation?.lat) {
+      if (!campusMarker.current) {
+        campusMarker.current = window.L.marker([campusLocation.lat, campusLocation.lng]).addTo(mapInstance.current)
+          .bindPopup(`<div dir="${isRTL ? 'rtl' : 'ltr'}" style="text-align: ${isRTL ? 'right' : 'left'}"><b>${currentCity?.uni || 'University'}</b><br/>${currentCity?.campus || 'Campus'}</div>`);
+      } else {
+        campusMarker.current.setLatLng([campusLocation.lat, campusLocation.lng])
+          .bindPopup(`<div dir="${isRTL ? 'rtl' : 'ltr'}" style="text-align: ${isRTL ? 'right' : 'left'}"><b>${currentCity?.uni || 'University'}</b><br/>${currentCity?.campus || 'Campus'}</div>`);
+      }
+    }
+  }, [leafletLoaded, defaultCenter?.lat, defaultCenter?.lng, userLocation, campusLocation, currentCity, defaultZoom, t, isRTL]);
+
+  if (!defaultCenter || !defaultCenter.lat || !defaultCenter.lng) {
+    return (
+      <div className="bg-red-500/20 rounded-2xl p-8 text-center">
+        <p className="text-white">Unable to load map: Invalid coordinates</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full h-[400px] md:h-[500px] rounded-2xl overflow-hidden shadow-lg z-0">
+      {!mapError ? (
+        <div ref={mapRef} style={{ height: '100%', width: '100%' }} className="z-0" />
+      ) : (
+        <div className="bg-red-500/20 rounded-2xl p-8 text-center h-full flex items-center justify-center">
+          <div>
+            <p className="text-white mb-2">{t.mapFailLoad}</p>
+            <button 
+              onClick={() => { setMapError(false); setLeafletLoaded(false); setTimeout(() => setLeafletLoaded(true), 100); }}
+              className="text-xs bg-white/20 px-3 py-1 rounded-full"
+            >
+              {t.mapRetry}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const sunIconMap = { Sun, SunDim, SunMedium, Sunrise, Sunset, CloudSun, Flame, Sparkles, Target, Aperture };
 const moonIconMap = { Moon, MoonStar, CloudMoon, Star, StarHalf, Sparkles, Circle, Disc, Shield, Hexagon };
 const cloudyIconMap = { Cloud, CloudSun, CloudMoon, CloudRain, CloudSnow, CloudLightning, CloudFog, CloudDrizzle, Wind, CloudHail };
@@ -30,7 +147,96 @@ const UK_UNIVERSITIES = [
   { city: "Glasgow", uni: "University of Glasgow", campus: "Gilmorehill", lat: 55.8724, lon: -4.2900 },
   { city: "Leeds", uni: "University of Leeds", campus: "Woodhouse", lat: 53.8067, lon: -1.5550 },
   { city: "Nottingham", uni: "University of Nottingham", campus: "University Park", lat: 52.9381, lon: -1.1973 },
-  { city: "Cardiff", uni: "University of Cardiff", campus: "Cathays Park", lat: 51.4883, lon: -3.1769 }
+  { city: "Cardiff", uni: "Cardiff University", campus: "Cathays Park", lat: 51.4883, lon: -3.1769 },
+  { city: "London", uni: "University College London (UCL)", campus: "Bloomsbury", lat: 51.5246, lon: -0.1340 },
+  { city: "London", uni: "Imperial College London", campus: "South Kensington", lat: 51.4988, lon: -0.1749 },
+  { city: "London", uni: "King's College London", campus: "Strand Campus", lat: 51.5115, lon: -0.1160 },
+  { city: "London", uni: "London School of Economics (LSE)", campus: "Houghton Street", lat: 51.5144, lon: -0.1165 },
+  { city: "Coventry", uni: "University of Warwick", campus: "Main Campus", lat: 52.3793, lon: -1.5615 },
+  { city: "Birmingham", uni: "University of Birmingham", campus: "Edgbaston", lat: 52.4508, lon: -1.9305 },
+  { city: "Sheffield", uni: "University of Sheffield", campus: "Western Bank", lat: 53.3814, lon: -1.4884 },
+  { city: "Southampton", uni: "University of Southampton", campus: "Highfield Campus", lat: 50.9346, lon: -1.3960 },
+  { city: "St Andrews", uni: "University of St Andrews", campus: "Central Campus", lat: 56.3398, lon: -2.7967 },
+  { city: "Durham", uni: "Durham University", campus: "City Campus", lat: 54.7650, lon: -1.5782 },
+  { city: "Newcastle", uni: "Newcastle University", campus: "City Campus", lat: 54.9790, lon: -1.6132 },
+  { city: "York", uni: "University of York", campus: "Heslington Campus", lat: 53.9481, lon: -1.0524 },
+  { city: "Exeter", uni: "University of Exeter", campus: "Streatham Campus", lat: 50.7371, lon: -3.5351 },
+  { city: "Bath", uni: "University of Bath", campus: "Claverton Down", lat: 51.3782, lon: -2.3264 },
+  { city: "Lancaster", uni: "Lancaster University", campus: "Bailrigg", lat: 54.0104, lon: -2.7877 },
+  { city: "Loughborough", uni: "Loughborough University", campus: "Epinal Way", lat: 52.7650, lon: -1.2321 },
+  { city: "Guildford", uni: "University of Surrey", campus: "Stag Hill", lat: 51.2435, lon: -0.5916 },
+  { city: "Brighton", uni: "University of Sussex", campus: "Falmer", lat: 50.8679, lon: -0.0875 },
+  { city: "Liverpool", uni: "University of Liverpool", campus: "City Campus", lat: 53.4065, lon: -2.9644 },
+  { city: "Leicester", uni: "University of Leicester", campus: "University Road", lat: 52.6214, lon: -1.1245 },
+  { city: "Aberdeen", uni: "University of Aberdeen", campus: "King's College", lat: 57.1648, lon: -2.1017 },
+  { city: "Dundee", uni: "University of Dundee", campus: "City Campus", lat: 56.4583, lon: -2.9822 },
+  { city: "Belfast", uni: "Queen's University Belfast", campus: "Main Campus", lat: 54.5843, lon: -5.9340 },
+  { city: "Coleraine", uni: "Ulster University", campus: "Coleraine Campus", lat: 55.1666, lon: -6.6713 },
+  { city: "Swansea", uni: "Swansea University", campus: "Singleton Park", lat: 51.6096, lon: -3.9806 },
+  { city: "Aberystwyth", uni: "Aberystwyth University", campus: "Penglais", lat: 52.4155, lon: -4.0630 },
+  { city: "Reading", uni: "University of Reading", campus: "Whiteknights", lat: 51.4414, lon: -0.9418 },
+  { city: "Canterbury", uni: "University of Kent", campus: "Giles Lane", lat: 51.2965, lon: 1.0691 },
+  { city: "Norwich", uni: "University of East Anglia (UEA)", campus: "Norwich Research Park", lat: 52.6219, lon: 1.2386 },
+  { city: "Colchester", uni: "University of Essex", campus: "Wivenhoe Park", lat: 51.8784, lon: 0.9490 },
+  { city: "Newcastle-under-Lyme", uni: "Keele University", campus: "Keele Campus", lat: 53.0033, lon: -2.2699 },
+  { city: "Hull", uni: "University of Hull", campus: "Cottingham Road", lat: 53.7719, lon: -0.3665 },
+  { city: "Plymouth", uni: "University of Plymouth", campus: "City Centre", lat: 50.3755, lon: -4.1385 },
+  { city: "Portsmouth", uni: "University of Portsmouth", campus: "City Campus", lat: 50.7963, lon: -1.0960 },
+  { city: "Birmingham", uni: "Aston University", campus: "Aston Triangle", lat: 52.4868, lon: -1.8882 },
+  { city: "Bournemouth", uni: "Bournemouth University", campus: "Talbot Campus", lat: 50.7428, lon: -1.8973 },
+  { city: "Lincoln", uni: "University of Lincoln", campus: "Brayford Pool", lat: 53.2285, lon: -0.5478 },
+  { city: "Bradford", uni: "University of Bradford", campus: "City Campus", lat: 53.7915, lon: -1.7641 },
+  { city: "London", uni: "Brunel University London", campus: "Uxbridge", lat: 51.5328, lon: -0.4734 },
+  { city: "London", uni: "City, University of London", campus: "Northampton Square", lat: 51.5278, lon: -0.1025 },
+  { city: "London", uni: "Goldsmiths, University of London", campus: "New Cross", lat: 51.4743, lon: -0.0354 },
+  { city: "Egham", uni: "Royal Holloway, University of London", campus: "Main Campus", lat: 51.4256, lon: -0.5630 },
+  { city: "London", uni: "University of Roehampton", campus: "Roehampton Lane", lat: 51.4550, lon: -0.2443 },
+  { city: "London", uni: "University of Westminster", campus: "Regent Campus", lat: 51.5173, lon: -0.1415 },
+  { city: "London", uni: "London South Bank University", campus: "Southwark Campus", lat: 51.4984, lon: -0.1013 },
+  { city: "London", uni: "Middlesex University", campus: "Hendon Campus", lat: 51.5898, lon: -0.2286 },
+  { city: "London", uni: "University of the Arts London", campus: "High Holborn", lat: 51.5176, lon: -0.1197 },
+  { city: "Cranfield", uni: "Cranfield University", campus: "Main Campus", lat: 52.0736, lon: -0.6276 },
+  { city: "Leicester", uni: "De Montfort University", campus: "City Campus", lat: 52.6288, lon: -1.1396 },
+  { city: "Stirling", uni: "University of Stirling", campus: "Main Campus", lat: 56.1465, lon: -3.9202 },
+  { city: "Glasgow", uni: "University of Strathclyde", campus: "John Anderson Campus", lat: 55.8624, lon: -4.2425 },
+  { city: "Edinburgh", uni: "Heriot-Watt University", campus: "Riccarton", lat: 55.9123, lon: -3.3211 },
+  { city: "Edinburgh", uni: "Edinburgh Napier University", campus: "Craiglockhart", lat: 55.9186, lon: -3.2384 },
+  { city: "Aberdeen", uni: "Robert Gordon University", campus: "Garthdee", lat: 57.1190, lon: -2.1350 },
+  { city: "Glasgow", uni: "Glasgow Caledonian University", campus: "Cowcaddens Road", lat: 55.8669, lon: -4.2502 },
+  { city: "Winchester", uni: "University of Winchester", campus: "Sparkford Road", lat: 51.0583, lon: -1.3283 },
+  { city: "Chichester", uni: "University of Chichester", campus: "Bishop Otter Campus", lat: 50.8447, lon: -0.7788 },
+  { city: "Brighton", uni: "University of Brighton", campus: "Moulsecoomb", lat: 50.8406, lon: -0.1179 },
+  { city: "Salford", uni: "University of Salford", campus: "Peel Park", lat: 53.4869, lon: -2.2741 },
+  { city: "Manchester", uni: "Manchester Metropolitan University", campus: "All Saints", lat: 53.4707, lon: -2.2393 },
+  { city: "Sheffield", uni: "Sheffield Hallam University", campus: "City Campus", lat: 53.3792, lon: -1.4651 },
+  { city: "Leeds", uni: "Leeds Beckett University", campus: "City Campus", lat: 53.8052, lon: -1.5475 },
+  { city: "Nottingham", uni: "Nottingham Trent University", campus: "City Campus", lat: 52.9582, lon: -1.1517 },
+  { city: "Derby", uni: "University of Derby", campus: "Kedleston Road", lat: 52.9365, lon: -1.4962 },
+  { city: "Stoke-on-Trent", uni: "Staffordshire University", campus: "College Road", lat: 53.0101, lon: -2.1764 },
+  { city: "Wolverhampton", uni: "University of Wolverhampton", campus: "City Campus", lat: 52.5888, lon: -2.1264 },
+  { city: "Coventry", uni: "Coventry University", campus: "City Campus", lat: 52.4069, lon: -1.5033 },
+  { city: "Cambridge", uni: "Anglia Ruskin University", campus: "East Road", lat: 52.2033, lon: 0.1332 },
+  { city: "Luton", uni: "University of Bedfordshire", campus: "University Square", lat: 51.8785, lon: -0.4101 },
+  { city: "Hatfield", uni: "University of Hertfordshire", campus: "College Lane", lat: 51.7523, lon: -0.2429 },
+  { city: "Northampton", uni: "University of Northampton", campus: "Waterside Campus", lat: 52.2333, lon: -0.8872 },
+  { city: "Oxford", uni: "Oxford Brookes University", campus: "Headington Campus", lat: 51.7535, lon: -1.2266 },
+  { city: "Buckingham", uni: "University of Buckingham", campus: "Hunter Street", lat: 51.9961, lon: -0.9880 },
+  { city: "Cheltenham", uni: "University of Gloucestershire", campus: "Park Campus", lat: 51.8888, lon: -2.0837 },
+  { city: "Bath", uni: "Bath Spa University", campus: "Newton Park", lat: 51.3732, lon: -2.4395 },
+  { city: "Bristol", uni: "University of the West of England (UWE)", campus: "Frenchay Campus", lat: 51.5002, lon: -2.5484 },
+  { city: "Pontypridd", uni: "University of South Wales", campus: "Treforest Campus", lat: 51.5937, lon: -3.3260 },
+  { city: "Bangor", uni: "Bangor University", campus: "Main Campus", lat: 53.2287, lon: -4.1293 },
+  { city: "Wrexham", uni: "Wrexham Glyndŵr University", campus: "Plas Coch", lat: 53.0526, lon: -3.0041 },
+  { city: "Carmarthen", uni: "University of Wales Trinity Saint David", campus: "Carmarthen Campus", lat: 51.8540, lon: -4.3168 },
+  { city: "Ormskirk", uni: "Edge Hill University", campus: "Main Campus", lat: 53.5604, lon: -2.8732 },
+  { city: "Preston", uni: "University of Central Lancashire (UCLan)", campus: "City Campus", lat: 53.7632, lon: -2.7044 },
+  { city: "Chester", uni: "University of Chester", campus: "Parkgate Road", lat: 53.1979, lon: -2.8953 },
+  { city: "Liverpool", uni: "Liverpool John Moores University", campus: "Mount Pleasant", lat: 53.4035, lon: -2.9691 },
+  { city: "Liverpool", uni: "Liverpool Hope University", campus: "Hope Park", lat: 53.3917, lon: -2.8803 },
+  { city: "Sunderland", uni: "University of Sunderland", campus: "City Campus", lat: 54.9048, lon: -1.3888 },
+  { city: "Middlesbrough", uni: "Teesside University", campus: "City Campus", lat: 54.5724, lon: -1.2336 },
+  { city: "Newcastle", uni: "Northumbria University", campus: "City Campus", lat: 54.9781, lon: -1.6067 },
+  { city: "York", uni: "York St John University", campus: "Lord Mayor's Walk", lat: 53.9654, lon: -1.0792 }
 ];
 
 export default function App() {
@@ -51,6 +257,10 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState(null);
 
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationError, setLocationError] = useState(null);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+
   const [customColors, setCustomColors] = useState({
     bgDayClear: '#3B82F6', bgNightClear: '#0F3460',
     bgDayCloudy: '#60A5FA', bgNightCloudy: '#1E3A8A',
@@ -58,22 +268,20 @@ export default function App() {
     bgDayRain: '#475569', bgNightRain: '#0F172A',
     bgDaySnow: '#7DD3FC', bgNightSnow: '#1D4ED8',
     bgDayThunder: '#374151', bgNightThunder: '#000000',
-    // UPDATED: Added dedicated colors for all 7 weather elements
     sun: '#FBBF24', moon: '#FDE047', rain: '#9CA3AF', 
     cloud: '#A1A1AA', fog: '#94A3B8', snow: '#BAE6FD', thunder: '#A78BFA',
     text: '#FFFFFF', navSelected: '#FBBF24' 
   });
   
+  // UPDATED: Added new size sliders for Complex Grid and Forecast List
   const [customSizes, setCustomSizes] = useState({
-    flag: 1, temp: 1, weather: 1, text: 1, nav: 1, topTemp: 1 
+    flag: 1, temp: 1, weather: 1, text: 1, nav: 1, topTemp: 1, complexGrid: 1, complexForecast: 1
   });
   
-  // UPDATED: Now stores custom icon selections for ALL 7 weather types
   const [customIcons, setCustomIcons] = useState({
     sun: 'Sun', moon: 'Moon', cloudy: 'Cloud', fog: 'CloudFog', rain: 'CloudRain', snow: 'Snowflake', thunder: 'CloudLightning'
   });
 
-  // NEW: Stores individual fill/outline preferences for ALL 7 weather types
   const [customFills, setCustomFills] = useState({
     sun: true, moon: true, cloudy: false, fog: false, rain: false, snow: false, thunder: false
   });
@@ -93,6 +301,45 @@ export default function App() {
   useEffect(() => {
     setActiveLang(isViewingPrimary ? primaryLang : secondaryLang);
   }, [isViewingPrimary, primaryLang, secondaryLang]);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      setIsLoadingLocation(true);
+      const options = {
+        enableHighAccuracy: false,
+        timeout: 15000,
+        maximumAge: 60000
+      };
+      
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+          setIsLoadingLocation(false);
+        },
+        (error) => {
+          let errorMessage = 'Unable to get your location';
+          if (error.code === 1) {
+            errorMessage = 'Location permission denied. Please allow location access.';
+          } else if (error.code === 2) {
+            errorMessage = 'Location unavailable. Check your device settings.';
+          } else if (error.code === 3) {
+            errorMessage = 'Location request timed out. Please try again.';
+          } else {
+            errorMessage = 'Location access is restricted in this environment.';
+          }
+          setLocationError(errorMessage);
+          setIsLoadingLocation(false);
+        },
+        options
+      );
+    } else {
+      setLocationError('Geolocation is not supported by your browser');
+      setIsLoadingLocation(false);
+    }
+  }, []);
 
   useEffect(() => {
     const fetchWeather = async () => {
@@ -190,12 +437,12 @@ export default function App() {
 
   const cycleWeather = () => {
     const states = [
-      { isDay: true, wmoCode: 0 }, { isDay: false, wmoCode: 0 },       // Clear
-      { isDay: true, wmoCode: 3 }, { isDay: false, wmoCode: 3 },       // Cloudy
-      { isDay: true, wmoCode: 61 }, { isDay: false, wmoCode: 61 },     // Rain
-      { isDay: true, wmoCode: 45 }, { isDay: false, wmoCode: 45 },     // Fog
-      { isDay: true, wmoCode: 71 }, { isDay: false, wmoCode: 71 },     // Snow
-      { isDay: true, wmoCode: 95 }, { isDay: false, wmoCode: 95 }      // Thunder
+      { isDay: true, wmoCode: 0 }, { isDay: false, wmoCode: 0 },       
+      { isDay: true, wmoCode: 3 }, { isDay: false, wmoCode: 3 },       
+      { isDay: true, wmoCode: 61 }, { isDay: false, wmoCode: 61 },     
+      { isDay: true, wmoCode: 45 }, { isDay: false, wmoCode: 45 },     
+      { isDay: true, wmoCode: 71 }, { isDay: false, wmoCode: 71 },     
+      { isDay: true, wmoCode: 95 }, { isDay: false, wmoCode: 95 }      
     ];
     const currentIndex = states.findIndex(s => s.isDay === weatherState.isDay && s.wmoCode === weatherState.wmoCode);
     const nextIndex = (currentIndex + 1) % states.length;
@@ -238,15 +485,30 @@ export default function App() {
     return isDay ? customColors.bgDayClear : customColors.bgNightClear;
   };
 
-  // UPDATED: Included "fillIcon" translation for all languages
+  function calculateDistance(point1, point2) {
+    const R = 6371; 
+    const lat1 = point1.lat * Math.PI / 180;
+    const lat2 = point2.lat * Math.PI / 180;
+    const deltaLat = (point2.lat - point1.lat) * Math.PI / 180;
+    const deltaLng = (point2.lng - point1.lng) * Math.PI / 180;
+    
+    const a = Math.sin(deltaLat/2) * Math.sin(deltaLat/2) +
+              Math.cos(lat1) * Math.cos(lat2) *
+              Math.sin(deltaLng/2) * Math.sin(deltaLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    
+    return (R * c).toFixed(2);
+  }
+
+  // UPDATED: Added translations for Complex Scale Sliders & Map UI
   const text = {
-    EN: { gearClearDay: "Gear: Sunglasses", gearClearNight: "Gear: Jacket", gearRain: "Gear: Umbrella", searchPlaceholder: "Search UK Campus...", optionsTitle: "Settings", langPrefTitle: "Languages", primaryLangLabel: "Primary Language", secondaryLangLabel: "Secondary Language", studentProfile: "Profile", manageId: "Manage ID", notifications: "Notifications", weatherAlerts: "Alerts", mapTitle: "Campus Map", mapComingSoon: "Map coming in Phase 2!", themeTitle: "Theme", themeDesc: "Customize appearance", themeDynamic: "Dynamic", themeMidnight: "Midnight", themeSunset: "Sunset", themeQMUL: "QMUL Blue", themeForest: "Forest", themeProtanopia: "Protanopia", themeDeuteranopia: "Deuteranopia", themeTritanopia: "Tritanopia", previewTitle: "Live Preview", themeCustom: "Custom Theme", bgClear: "Clear", bgCloudy: "Cloudy", bgFog: "Fog", bgRain: "Rain", bgSnow: "Snow", bgThunder: "Thunder", dayStr: "Day", nightStr: "Night", styleSun: "Sun Icon", styleMoon: "Moon Icon", styleCloudy: "Cloudy Icon", styleFog: "Fog Icon", styleRain: "Rain Icon", styleSnow: "Snow Icon", styleThunder: "Thunder Icon", tapToToggle: "Tap to cycle weather", bgColors: "Backgrounds", elementColors: "Elements", colorSun: "Sun", colorMoon: "Moon", colorRain: "Rain", colorCloud: "Cloud", colorFog: "Fog", colorSnow: "Snow", colorThunder: "Thunder", colorText: "Text", colorNavSelected: "Nav", modeTitle: "App Mode", modeSimple: "Simple Mode", modeComplex: "Complex Mode", modeBattery: "Battery Saver", humidity: "Humidity", wind: "Wind", uv: "UV Index", pollution: "Pollution", pressure: "Pressure", sunrise: "Sunrise", sunset: "Sunset", sizesTitle: "Sizes", sizeFlag: "Flag", sizeTemp: "Temp", sizeWeather: "Weather", sizeText: "Text", sizeNav: "Nav", sizeTopTemp: "Top Temp", forecastTitle: "7-Day Forecast", descClear: "Clear", descCloudy: "Cloudy", descFog: "Foggy", descRain: "Rain", descSnow: "Snow", descThunder: "Thunder", gearSnow: "Gear: Heavy Coat", gearThunder: "Gear: Indoors", simpleForecastTitle: "This Week", fillIcon: "Fill Icon" },
-    TH: { gearClearDay: "อุปกรณ์: แว่นกันแดด", gearClearNight: "อุปกรณ์: แจ็คเก็ต", gearRain: "อุปกรณ์: ร่ม", searchPlaceholder: "ค้นหาวิทยาเขต...", optionsTitle: "การตั้งค่า", langPrefTitle: "ภาษา", primaryLangLabel: "ภาษาหลัก", secondaryLangLabel: "ภาษารอง", studentProfile: "โปรไฟล์", manageId: "จัดการ ID", notifications: "การแจ้งเตือน", weatherAlerts: "เตือนสภาพอากาศ", mapTitle: "แผนที่", mapComingSoon: "มาในเฟส 2!", themeTitle: "ธีม", themeDesc: "ปรับแต่งแอป", themeDynamic: "ไดนามิก", themeMidnight: "มิดไนท์", themeSunset: "แสงอาทิตย์ตก", themeQMUL: "สีฟ้า QMUL", themeForest: "สีเขียวป่า", themeProtanopia: "ตาบอดสีแดง", themeDeuteranopia: "ตาบอดสีเขียว", themeTritanopia: "ตาบอดสีน้ำเงิน", previewTitle: "แสดงตัวอย่างสด", themeCustom: "ธีมกำหนดเอง", bgClear: "แจ่มใส", bgCloudy: "มีเมฆ", bgFog: "มีหมอก", bgRain: "ฝนตก", bgSnow: "หิมะตก", bgThunder: "พายุฝนฟ้าคะนอง", dayStr: "กลางวัน", nightStr: "กลางคืน", styleSun: "ไอคอนพระอาทิตย์", styleMoon: "ไอคอนพระจันทร์", styleCloudy: "ไอคอนเมฆ", styleFog: "ไอคอนหมอก", styleRain: "ไอคอนฝน", styleSnow: "ไอคอนหิมะ", styleThunder: "ไอคอนพายุ", tapToToggle: "แตะเพื่อสลับ", bgColors: "พื้นหลัง", elementColors: "องค์ประกอบ", colorSun: "พระอาทิตย์", colorMoon: "พระจันทร์", colorRain: "ฝน", colorCloud: "เมฆ", colorFog: "หมอก", colorSnow: "หิมะ", colorThunder: "พายุ", colorText: "ข้อความ", colorNavSelected: "เมนู", modeTitle: "โหมด", modeSimple: "โหมดปกติ", modeComplex: "โหมดรายละเอียด", modeBattery: "ประหยัดแบต", humidity: "ความชื้น", wind: "ลม", uv: "ดัชนี UV", pollution: "มลพิษ", pressure: "ความกดอากาศ", sunrise: "พระอาทิตย์ขึ้น", sunset: "พระอาทิตย์ตก", sizesTitle: "ขนาด", sizeFlag: "ธง", sizeTemp: "อุณหภูมิ", sizeWeather: "ไอคอน", sizeText: "ข้อความ", sizeNav: "แถบนำทาง", sizeTopTemp: "อุณหภูมิด้านบน", forecastTitle: "พยากรณ์ 7 วัน", descClear: "แจ่มใส", descCloudy: "มีเมฆ", descFog: "มีหมอก", descRain: "ฝนตก", descSnow: "หิมะตก", descThunder: "พายุ", gearSnow: "อุปกรณ์: เสื้อกันหนาว", gearThunder: "อุปกรณ์: อยู่ในร่ม", simpleForecastTitle: "สัปดาห์นี้", fillIcon: "เติมสีไอคอน" },
-    ZH: { gearClearDay: "装备：太阳镜", gearClearNight: "装备：外套", gearRain: "装备：雨伞", searchPlaceholder: "搜索校园...", optionsTitle: "设置", langPrefTitle: "语言偏好", primaryLangLabel: "主要语言", secondaryLangLabel: "次要语言", studentProfile: "档案", manageId: "管理 ID", notifications: "通知", weatherAlerts: "天气警报", mapTitle: "校园地图", mapComingSoon: "第二阶段推出！", themeTitle: "主题", themeDesc: "自定义外观", themeDynamic: "动态", themeMidnight: "午夜", themeSunset: "日落", themeQMUL: "QMUL 蓝", themeForest: "森林绿", themeProtanopia: "红色盲", themeDeuteranopia: "绿色盲", themeTritanopia: "蓝色盲", previewTitle: "实时预览", themeCustom: "自定义主题", bgClear: "晴朗", bgCloudy: "多云", bgFog: "雾", bgRain: "雨", bgSnow: "雪", bgThunder: "雷", dayStr: "白天", nightStr: "夜晚", styleSun: "太阳图标", styleMoon: "月亮图标", styleCloudy: "多云图标", styleFog: "雾图标", styleRain: "雨图标", styleSnow: "雪图标", styleThunder: "雷暴图标", tapToToggle: "点击切换", bgColors: "背景颜色", elementColors: "元素颜色", colorSun: "太阳", colorMoon: "月亮", colorRain: "雨水", colorCloud: "云", colorFog: "雾", colorSnow: "雪", colorThunder: "雷", colorText: "文本", colorNavSelected: "导航", modeTitle: "模式", modeSimple: "简单模式", modeComplex: "复杂模式", modeBattery: "省电模式", humidity: "湿度", wind: "风速", uv: "紫外线", pollution: "污染", pressure: "气压", sunrise: "日出", sunset: "日落", sizesTitle: "大小", sizeFlag: "国旗", sizeTemp: "温度", sizeWeather: "天气图标", sizeText: "文本", sizeNav: "导航栏", sizeTopTemp: "顶部温度", forecastTitle: "7天预报", descClear: "晴朗", descCloudy: "多云", descFog: "有雾", descRain: "下雨", descSnow: "下雪", descThunder: "雷暴", gearSnow: "装备：厚外套", gearThunder: "装备：室内", simpleForecastTitle: "本周", fillIcon: "填充图标" },
-    FA: { gearClearDay: "تجهیزات: عینک آفتابی", gearClearNight: "تجهیزات: ژاکت", gearRain: "تجهیزات: چتر", searchPlaceholder: "جستجوی پردیس...", optionsTitle: "تنظیمات", langPrefTitle: "زبان‌ها", primaryLangLabel: "زبان اصلی", secondaryLangLabel: "زبان دوم", studentProfile: "پروفایل", manageId: "مدیریت شناسه", notifications: "اعلان‌ها", weatherAlerts: "هشدارها", mapTitle: "نقشه", mapComingSoon: "فاز 2 اضافه می‌شود!", themeTitle: "تم", themeDesc: "سفارشی سازی", themeDynamic: "پویا", themeMidnight: "نیمه شب", themeSunset: "غروب", themeQMUL: "آبی QMUL", themeForest: "جنگل", themeProtanopia: "کوررنگی قرمز", themeDeuteranopia: "کوررنگی سبز", themeTritanopia: "کوررنگی آبی", previewTitle: "پیش‌نمایش", themeCustom: "تم سفارشی", bgClear: "صاف", bgCloudy: "ابری", bgFog: "مه", bgRain: "باران", bgSnow: "برف", bgThunder: "رعد و برق", dayStr: "روز", nightStr: "شب", styleSun: "نماد خورشید", styleMoon: "نماد ماه", styleCloudy: "نماد ابری", styleFog: "نماد مه", styleRain: "نماد باران", styleSnow: "نماد برف", styleThunder: "نماد رعد و برق", tapToToggle: "ضربه بزنید", bgColors: "پس‌زمینه", elementColors: "عناصر", colorSun: "خورشید", colorMoon: "ماه", colorRain: "باران", colorCloud: "ابر", colorFog: "مه", colorSnow: "برف", colorThunder: "رعد و برق", colorText: "متن", colorNavSelected: "ناوبری", modeTitle: "حالت", modeSimple: "ساده", modeComplex: "پیشرفته", modeBattery: "ذخیره باتری", humidity: "رطوبت", wind: "باد", uv: "UV", pollution: "آلودگی", pressure: "فشار", sunrise: "طلوع", sunset: "غروب", sizesTitle: "اندازه‌ها", sizeFlag: "پرچم", sizeTemp: "دما", sizeWeather: "نماد", sizeText: "متن", sizeNav: "ناوبری", sizeTopTemp: "دمای بالا", forecastTitle: "پیش بینی 7 روزه", descClear: "صاف", descCloudy: "ابری", descFog: "مه آلود", descRain: "باران", descSnow: "برف", descThunder: "رعد و برق", gearSnow: "تجهیزات: پالتو", gearThunder: "تجهیزات: در خانه", simpleForecastTitle: "این هفته", fillIcon: "پر کردن نماد" },
-    AR: { gearClearDay: "المعدات: نظارات شمسية", gearClearNight: "المعدات: سترة", gearRain: "المعدات: مظلة", searchPlaceholder: "ابحث عن حرم جامعي...", optionsTitle: "الإعدادات", langPrefTitle: "اللغات", primaryLangLabel: "اللغة الأساسية", secondaryLangLabel: "اللغة الثانوية", studentProfile: "الملف الشخصي", manageId: "إدارة المعرف", notifications: "الإشعارات", weatherAlerts: "تنبيهات", mapTitle: "خريطة", mapComingSoon: "قادمة في المرحلة 2!", themeTitle: "السمة", themeDesc: "تخصيص المظهر", themeDynamic: "ديناميكي", themeMidnight: "منتصف الليل", themeSunset: "غروب", themeQMUL: "أزرق QMUL", themeForest: "غابة", themeProtanopia: "عمى أحمر", themeDeuteranopia: "عمى أخضر", themeTritanopia: "عمى أزرق", previewTitle: "معاينة", themeCustom: "سمة مخصصة", bgClear: "صافي", bgCloudy: "غائم", bgFog: "ضباب", bgRain: "مطر", bgSnow: "ثلج", bgThunder: "رعد", dayStr: "نهار", nightStr: "ليل", styleSun: "أيقونة الشمس", styleMoon: "أيقونة القمر", styleCloudy: "أيقونة غائم", styleFog: "أيقونة ضباب", styleRain: "أيقونة المطر", styleSnow: "أيقونة ثلج", styleThunder: "أيقونة رعد", tapToToggle: "انقر للتبديل", bgColors: "الخلفيات", elementColors: "العناصر", colorSun: "الشمس", colorMoon: "القمر", colorRain: "المطر", colorCloud: "سحابة", colorFog: "ضباب", colorSnow: "ثلج", colorThunder: "رعد", colorText: "النص", colorNavSelected: "التنقل", modeTitle: "الوضع", modeSimple: "بسيط", modeComplex: "متقدم", modeBattery: "توفير البطارية", humidity: "الرطوبة", wind: "الرياح", uv: "UV", pollution: "التلوث", pressure: "الضغط", sunrise: "شروق", sunset: "غروب", sizesTitle: "الأحجام", sizeFlag: "العلم", sizeTemp: "الحرارة", sizeWeather: "الطقس", sizeText: "النص", sizeNav: "التنقل", sizeTopTemp: "الحرارة العليا", forecastTitle: "توقعات 7 أيام", descClear: "صافي", descCloudy: "غائم", descFog: "ضبابي", descRain: "ممطر", descSnow: "ثلج", descThunder: "عاصفة", gearSnow: "المعدات: معطف", gearThunder: "المعدات: بالداخل", simpleForecastTitle: "هذا الأسبوع", fillIcon: "تعبئة الأيقونة" },
-    HI: { gearClearDay: "गियर: धूप का चश्मा", gearClearNight: "गियर: जैकेट", gearRain: "गियर: छाता", searchPlaceholder: "कैंपस खोजें...", optionsTitle: "सेटिंग्स", langPrefTitle: "भाषा", primaryLangLabel: "प्राथमिक भाषा", secondaryLangLabel: "द्वितीयक भाषा", studentProfile: "प्रोफ़ाइल", manageId: "आईडी प्रबंधित करें", notifications: "सूचनाएं", weatherAlerts: "अलर्ट", mapTitle: "नक्शा", mapComingSoon: "चरण 2 में आ रहा है!", themeTitle: "थीम", themeDesc: "अनुकूलित करें", themeDynamic: "डायनामिक", themeMidnight: "मिडनाइट", themeSunset: "सनसेट", themeQMUL: "QMUL ब्लू", themeForest: "फॉरेस्ट", themeProtanopia: "लाल-अंधा", themeDeuteranopia: "हरा-अंधा", themeTritanopia: "नीला-अंधा", previewTitle: "पूर्वावलोकन", themeCustom: "कस्टम थीम", bgClear: "साफ़", bgCloudy: "बादल", bgFog: "कोहरा", bgRain: "बारिश", bgSnow: "बर्फ", bgThunder: "आंधी", dayStr: "दिन", nightStr: "रात", styleSun: "सूर्य आइकन", styleMoon: "चंद्रमा आइकन", styleCloudy: "बादल आइकन", styleFog: "कोहरा आइकन", styleRain: "बारिश आइकन", styleSnow: "बर्फ आइकन", styleThunder: "आंधी आइकन", tapToToggle: "बदलने के लिए टैप करें", bgColors: "पृष्ठभूमि", elementColors: "तत्व", colorSun: "सूर्य", colorMoon: "चंद्रमा", colorRain: "बारिश", colorCloud: "बादल", colorFog: "कोहरा", colorSnow: "बर्फ", colorThunder: "आंधी", colorText: "टेक्स्ट", colorNavSelected: "नेव", modeTitle: "मोड", modeSimple: "सरल", modeComplex: "जटिल", modeBattery: "बैटरी सेवर", humidity: "नमी", wind: "हवा", uv: "यूवी", pollution: "प्रदूषण", pressure: "दबाव", sunrise: "सूर्योदय", sunset: "सूर्यास्त", sizesTitle: "आकार", sizeFlag: "ध्वज", sizeTemp: "तापमान", sizeWeather: "मौसम", sizeText: "टेक्स्ट", sizeNav: "नेव", sizeTopTemp: "शीर्ष तापमान", forecastTitle: "7-दिन का पूर्वानुमान", descClear: "साफ", descCloudy: "बादल", descFog: "कोहरा", descRain: "बारिश", descSnow: "बर्फ", descThunder: "आंधी", gearSnow: "गियर: भारी कोट", gearThunder: "गियर: घर के अंदर", simpleForecastTitle: "इस सप्ताह", fillIcon: "आइकन भरें" },
-    BN: { gearClearDay: "গিয়ার: সানগ্লাস", gearClearNight: "গিয়ার: জ্যাকেট", gearRain: "গিয়ার: ছাতা", searchPlaceholder: "ক্যাম্পাস খুঁজুন...", optionsTitle: "সেটিংস", langPrefTitle: "ভাষা", primaryLangLabel: "প্রাথমিক ভাষা", secondaryLangLabel: "মাধ্যমিক ভাষা", studentProfile: "প্রোফাইল", manageId: "আইডি পরিচালনা", notifications: "বিজ্ঞপ্তি", weatherAlerts: "সতর্কতা", mapTitle: "মানচিত্র", mapComingSoon: "ফেজ 2 এ আসছে!", themeTitle: "থিম", themeDesc: "কাস্টমাইজ করুন", themeDynamic: "ডায়নামিক", themeMidnight: "মিডনাইট", themeSunset: "সানসেট", themeQMUL: "QMUL নীল", themeForest: "ফরেস্ট", themeProtanopia: "লাল-অন্ধ", themeDeuteranopia: "সবুজ-অন্ধ", themeTritanopia: "নীল-অন্ধ", previewTitle: "প্রিভিউ", themeCustom: "কাস্টম থিম", bgClear: "পরিষ্কার", bgCloudy: "মেঘলা", bgFog: "কুয়াশা", bgRain: "বৃষ্টি", bgSnow: "তুষার", bgThunder: "বজ্রপাত", dayStr: "দিন", nightStr: "রাত", styleSun: "সূর্য আইকন", styleMoon: "চাঁদ আইকন", styleCloudy: "মেঘলা আইকন", styleFog: "কুয়াশা আইকন", styleRain: "বৃষ্টির আইকন", styleSnow: "তুষার আইকন", styleThunder: "বজ্রপাত আইকন", tapToToggle: "পরিবর্তন করতে আলতো চাপুন", bgColors: "পটভূমি", elementColors: "উপাদান", colorSun: "সূর্য", colorMoon: "চাঁদ", colorRain: "বৃষ্টি", colorCloud: "মেঘ", colorFog: "কুয়াশা", colorSnow: "তুষার", colorThunder: "বজ্রপাত", colorText: "টেক্সট", colorNavSelected: "নেভ", modeTitle: "মোড", modeSimple: "সাধারণ", modeComplex: "জটিল", modeBattery: "ব্যাটারি সেভার", humidity: "আর্দ্রতা", wind: "বাতাস", uv: "ইউভি", pollution: "দূষণ", pressure: "চাপ", sunrise: "সূর্যোদয়", sunset: "সূর্যাস্ত", sizesTitle: "আকার", sizeFlag: "পতাকা", sizeTemp: "তাপমাত্রা", sizeWeather: "আবহাওয়া", sizeText: "টেক্সট", sizeNav: "নেভিগেশন", sizeTopTemp: "শীর্ষ তাপমাত্রা", forecastTitle: "৭ দিনের পূর্বাভাস", descClear: "পরিষ্কার", descCloudy: "মেঘলা", descFog: "কুয়াশা", descRain: "বৃষ্টি", descSnow: "তুষার", descThunder: "বজ্রপাত", gearSnow: "গিয়ার: ভারী কোট", gearThunder: "গিয়ার: ঘরে থাকুন", simpleForecastTitle: "এই সপ্তাহ", fillIcon: "আইকন পূরণ করুন" }
+    EN: { gearClearDay: "Gear: Sunglasses", gearClearNight: "Gear: Jacket", gearRain: "Gear: Umbrella", searchPlaceholder: "Search UK Campus...", optionsTitle: "Settings", langPrefTitle: "Languages", primaryLangLabel: "Primary Language", secondaryLangLabel: "Secondary Language", studentProfile: "Profile", manageId: "Manage ID", notifications: "Notifications", weatherAlerts: "Alerts", mapTitle: "Campus Map", mapComingSoon: "Map coming in Phase 2!", themeTitle: "Theme", themeDesc: "Customize appearance", themeDynamic: "Dynamic", themeMidnight: "Midnight", themeSunset: "Sunset", themeQMUL: "QMUL Blue", themeForest: "Forest", themeProtanopia: "Protanopia", themeDeuteranopia: "Deuteranopia", themeTritanopia: "Tritanopia", previewTitle: "Live Preview", themeCustom: "Custom Theme", bgClear: "Clear", bgCloudy: "Cloudy", bgFog: "Fog", bgRain: "Rain", bgSnow: "Snow", bgThunder: "Thunder", dayStr: "Day", nightStr: "Night", styleSun: "Sun Icon", styleMoon: "Moon Icon", styleCloudy: "Cloudy Icon", styleFog: "Fog Icon", styleRain: "Rain Icon", styleSnow: "Snow Icon", styleThunder: "Thunder Icon", tapToToggle: "Tap to cycle weather", bgColors: "Backgrounds", elementColors: "Elements", colorSun: "Sun", colorMoon: "Moon", colorRain: "Rain", colorCloud: "Cloud", colorFog: "Fog", colorSnow: "Snow", colorThunder: "Thunder", colorText: "Text", colorNavSelected: "Nav", modeTitle: "App Mode", modeSimple: "Simple Mode", modeComplex: "Complex Mode", modeBattery: "Battery Saver", humidity: "Humidity", wind: "Wind", uv: "UV Index", pollution: "Pollution", pressure: "Pressure", sunrise: "Sunrise", sunset: "Sunset", sizesTitle: "Sizes", sizeFlag: "Flag", sizeTemp: "Temp", sizeWeather: "Weather", sizeText: "Text", sizeNav: "Nav", sizeTopTemp: "Top Temp", forecastTitle: "7-Day Forecast", descClear: "Clear", descCloudy: "Cloudy", descFog: "Foggy", descRain: "Rain", descSnow: "Snow", descThunder: "Thunder", gearSnow: "Gear: Heavy Coat", gearThunder: "Gear: Indoors", simpleForecastTitle: "This Week", fillIcon: "Fill Icon", sizeComplexGrid: "Complex Grid", sizeForecast: "Forecast List", mapYourLocation: "Your Location", mapYouAreHere: "You are here!", mapCurrentUni: "Current University", mapLocAccessReq: "Location access required", mapDistanceTo: "Distance to", mapTip: "💡 Tip: Use the search bar on the home page to explore different UK universities. The map will update to show each campus location!", mapGettingLoc: "Getting your location...", mapFailLoad: "Failed to load map", mapRetry: "Retry" },
+    TH: { gearClearDay: "อุปกรณ์: แว่นกันแดด", gearClearNight: "อุปกรณ์: แจ็คเก็ต", gearRain: "อุปกรณ์: ร่ม", searchPlaceholder: "ค้นหาวิทยาเขต...", optionsTitle: "การตั้งค่า", langPrefTitle: "ภาษา", primaryLangLabel: "ภาษาหลัก", secondaryLangLabel: "ภาษารอง", studentProfile: "โปรไฟล์", manageId: "จัดการ ID", notifications: "การแจ้งเตือน", weatherAlerts: "เตือนสภาพอากาศ", mapTitle: "แผนที่", mapComingSoon: "มาในเฟส 2!", themeTitle: "ธีม", themeDesc: "ปรับแต่งแอป", themeDynamic: "ไดนามิก", themeMidnight: "มิดไนท์", themeSunset: "แสงอาทิตย์ตก", themeQMUL: "สีฟ้า QMUL", themeForest: "สีเขียวป่า", themeProtanopia: "ตาบอดสีแดง", themeDeuteranopia: "ตาบอดสีเขียว", themeTritanopia: "ตาบอดสีน้ำเงิน", previewTitle: "แสดงตัวอย่างสด", themeCustom: "ธีมกำหนดเอง", bgClear: "แจ่มใส", bgCloudy: "มีเมฆ", bgFog: "มีหมอก", bgRain: "ฝนตก", bgSnow: "หิมะตก", bgThunder: "พายุฝนฟ้าคะนอง", dayStr: "กลางวัน", nightStr: "กลางคืน", styleSun: "ไอคอนพระอาทิตย์", styleMoon: "ไอคอนพระจันทร์", styleCloudy: "ไอคอนเมฆ", styleFog: "ไอคอนหมอก", styleRain: "ไอคอนฝน", styleSnow: "ไอคอนหิมะ", styleThunder: "ไอคอนพายุ", tapToToggle: "แตะเพื่อสลับ", bgColors: "พื้นหลัง", elementColors: "องค์ประกอบ", colorSun: "พระอาทิตย์", colorMoon: "พระจันทร์", colorRain: "ฝน", colorCloud: "เมฆ", colorFog: "หมอก", colorSnow: "หิมะ", colorThunder: "พายุ", colorText: "ข้อความ", colorNavSelected: "เมนู", modeTitle: "โหมด", modeSimple: "โหมดปกติ", modeComplex: "โหมดรายละเอียด", modeBattery: "ประหยัดแบต", humidity: "ความชื้น", wind: "ลม", uv: "ดัชนี UV", pollution: "มลพิษ", pressure: "ความกดอากาศ", sunrise: "พระอาทิตย์ขึ้น", sunset: "พระอาทิตย์ตก", sizesTitle: "ขนาด", sizeFlag: "ธง", sizeTemp: "อุณหภูมิ", sizeWeather: "ไอคอน", sizeText: "ข้อความ", sizeNav: "แถบนำทาง", sizeTopTemp: "อุณหภูมิด้านบน", forecastTitle: "พยากรณ์ 7 วัน", descClear: "แจ่มใส", descCloudy: "มีเมฆ", descFog: "มีหมอก", descRain: "ฝนตก", descSnow: "หิมะตก", descThunder: "พายุ", gearSnow: "อุปกรณ์: เสื้อกันหนาว", gearThunder: "อุปกรณ์: อยู่ในร่ม", simpleForecastTitle: "สัปดาห์นี้", fillIcon: "เติมสีไอคอน", sizeComplexGrid: "ขนาดกริด", sizeForecast: "ขนาดพยากรณ์", mapYourLocation: "ตำแหน่งของคุณ", mapYouAreHere: "คุณอยู่ที่นี่!", mapCurrentUni: "มหาวิทยาลัยปัจจุบัน", mapLocAccessReq: "ต้องเข้าถึงตำแหน่ง", mapDistanceTo: "ระยะทางถึง", mapTip: "💡 เคล็ดลับ: ใช้แถบค้นหาบนหน้าแรกเพื่อสำรวจมหาวิทยาลัยต่างๆ ในสหราชอาณาจักร แผนที่จะอัปเดตเพื่อแสดงตำแหน่งของแต่ละวิทยาเขต!", mapGettingLoc: "กำลังหาตำแหน่งของคุณ...", mapFailLoad: "โหลดแผนที่ล้มเหลว", mapRetry: "ลองอีกครั้ง" },
+    ZH: { gearClearDay: "装备：太阳镜", gearClearNight: "装备：外套", gearRain: "装备：雨伞", searchPlaceholder: "搜索校园...", optionsTitle: "设置", langPrefTitle: "语言偏好", primaryLangLabel: "主要语言", secondaryLangLabel: "次要语言", studentProfile: "档案", manageId: "管理 ID", notifications: "通知", weatherAlerts: "天气警报", mapTitle: "校园地图", mapComingSoon: "第二阶段推出！", themeTitle: "主题", themeDesc: "自定义外观", themeDynamic: "动态", themeMidnight: "午夜", themeSunset: "日落", themeQMUL: "QMUL 蓝", themeForest: "森林绿", themeProtanopia: "红色盲", themeDeuteranopia: "绿色盲", themeTritanopia: "蓝色盲", previewTitle: "实时预览", themeCustom: "自定义主题", bgClear: "晴朗", bgCloudy: "多云", bgFog: "雾", bgRain: "雨", bgSnow: "雪", bgThunder: "雷", dayStr: "白天", nightStr: "夜晚", styleSun: "太阳图标", styleMoon: "月亮图标", styleCloudy: "多云图标", styleFog: "雾图标", styleRain: "雨图标", styleSnow: "雪图标", styleThunder: "雷暴图标", tapToToggle: "点击切换", bgColors: "背景颜色", elementColors: "元素颜色", colorSun: "太阳", colorMoon: "月亮", colorRain: "雨水", colorCloud: "云", colorFog: "雾", colorSnow: "雪", colorThunder: "雷", colorText: "文本", colorNavSelected: "导航", modeTitle: "模式", modeSimple: "简单模式", modeComplex: "复杂模式", modeBattery: "省电模式", humidity: "湿度", wind: "风速", uv: "紫外线", pollution: "污染", pressure: "气压", sunrise: "日出", sunset: "日落", sizesTitle: "大小", sizeFlag: "国旗", sizeTemp: "温度", sizeWeather: "天气图标", sizeText: "文本", sizeNav: "导航栏", sizeTopTemp: "顶部温度", forecastTitle: "7天预报", descClear: "晴朗", descCloudy: "多云", descFog: "有雾", descRain: "下雨", descSnow: "下雪", descThunder: "雷暴", gearSnow: "装备：厚外套", gearThunder: "装备：室内", simpleForecastTitle: "本周", fillIcon: "填充图标", sizeComplexGrid: "复杂网格", sizeForecast: "预报大小", mapYourLocation: "您的位置", mapYouAreHere: "你在这里！", mapCurrentUni: "当前大学", mapLocAccessReq: "需要位置权限", mapDistanceTo: "距离", mapTip: "💡 提示：使用主页上的搜索栏探索不同的英国大学。地图将更新以显示每个校园的位置！", mapGettingLoc: "正在获取您的位置...", mapFailLoad: "地图加载失败", mapRetry: "重试" },
+    FA: { gearClearDay: "تجهیزات: عینک آفتابی", gearClearNight: "تجهیزات: ژاکت", gearRain: "تجهیزات: چتر", searchPlaceholder: "جستجوی پردیس...", optionsTitle: "تنظیمات", langPrefTitle: "زبان‌ها", primaryLangLabel: "زبان اصلی", secondaryLangLabel: "زبان دوم", studentProfile: "پروفایل", manageId: "مدیریت شناسه", notifications: "اعلان‌ها", weatherAlerts: "هشدارها", mapTitle: "نقشه", mapComingSoon: "فاز 2 اضافه می‌شود!", themeTitle: "تم", themeDesc: "سفارشی سازی", themeDynamic: "پویا", themeMidnight: "نیمه شب", themeSunset: "غروب", themeQMUL: "آبی QMUL", themeForest: "جنگل", themeProtanopia: "کوررنگی قرمز", themeDeuteranopia: "کوررنگی سبز", themeTritanopia: "کوررنگی آبی", previewTitle: "پیش‌نمایش", themeCustom: "تم سفارشی", bgClear: "صاف", bgCloudy: "ابری", bgFog: "مه", bgRain: "باران", bgSnow: "برف", bgThunder: "رعد و برق", dayStr: "روز", nightStr: "شب", styleSun: "نماد خورشید", styleMoon: "نماد ماه", styleCloudy: "نماد ابری", styleFog: "نماد مه", styleRain: "نماد باران", styleSnow: "نماد برف", styleThunder: "نماد رعد و برق", tapToToggle: "ضربه بزنید", bgColors: "پس‌زمینه", elementColors: "عناصر", colorSun: "خورشید", colorMoon: "ماه", colorRain: "باران", colorCloud: "ابر", colorFog: "مه", colorSnow: "برف", colorThunder: "رعد و برق", colorText: "متن", colorNavSelected: "ناوبری", modeTitle: "حالت", modeSimple: "ساده", modeComplex: "پیشرفته", modeBattery: "ذخیره باتری", humidity: "رطوبت", wind: "باد", uv: "UV", pollution: "آلودگی", pressure: "فشار", sunrise: "طلوع", sunset: "غروب", sizesTitle: "اندازه‌ها", sizeFlag: "پرچم", sizeTemp: "دما", sizeWeather: "نماد", sizeText: "متن", sizeNav: "ناوبری", sizeTopTemp: "دمای بالا", forecastTitle: "پیش بینی 7 روزه", descClear: "صاف", descCloudy: "ابری", descFog: "مه آلود", descRain: "باران", descSnow: "برف", descThunder: "رعد و برق", gearSnow: "تجهیزات: پالتو", gearThunder: "تجهیزات: در خانه", simpleForecastTitle: "این هفته", fillIcon: "پر کردن نماد", sizeComplexGrid: "شبکه پیشرفته", sizeForecast: "اندازه پیش‌بینی", mapYourLocation: "مکان شما", mapYouAreHere: "شما اینجا هستید!", mapCurrentUni: "دانشگاه فعلی", mapLocAccessReq: "دسترسی به مکان لازم است", mapDistanceTo: "فاصله تا", mapTip: "💡 نکته: از نوار جستجو در صفحه اصلی برای کاوش در دانشگاه‌های مختلف انگلستان استفاده کنید. نقشه برای نشان دادن مکان هر پردیس به روز می شود!", mapGettingLoc: "در حال یافتن مکان شما...", mapFailLoad: "بارگیری نقشه ناموفق بود", mapRetry: "تلاش مجدد" },
+    AR: { gearClearDay: "المعدات: نظارات شمسية", gearClearNight: "المعدات: سترة", gearRain: "المعدات: مظلة", searchPlaceholder: "ابحث عن حرم جامعي...", optionsTitle: "الإعدادات", langPrefTitle: "اللغات", primaryLangLabel: "اللغة الأساسية", secondaryLangLabel: "اللغة الثانوية", studentProfile: "الملف الشخصي", manageId: "إدارة المعرف", notifications: "الإشعارات", weatherAlerts: "تنبيهات", mapTitle: "خريطة", mapComingSoon: "قادمة في المرحلة 2!", themeTitle: "السمة", themeDesc: "تخصيص المظهر", themeDynamic: "ديناميكي", themeMidnight: "منتصف الليل", themeSunset: "غروب", themeQMUL: "أزرق QMUL", themeForest: "غابة", themeProtanopia: "عمى أحمر", themeDeuteranopia: "عمى أخضر", themeTritanopia: "عمى أزرق", previewTitle: "معاينة", themeCustom: "سمة مخصصة", bgClear: "صافي", bgCloudy: "غائم", bgFog: "ضباب", bgRain: "مطر", bgSnow: "ثلج", bgThunder: "رعد", dayStr: "نهار", nightStr: "ليل", styleSun: "أيقونة الشمس", styleMoon: "أيقونة القمر", styleCloudy: "أيقونة غائم", styleFog: "أيقونة ضباب", styleRain: "أيقونة المطر", styleSnow: "أيقونة ثلج", styleThunder: "أيقونة رعد", tapToToggle: "انقر للتبديل", bgColors: "الخلفيات", elementColors: "العناصر", colorSun: "الشمس", colorMoon: "القمر", colorRain: "المطر", colorCloud: "سحابة", colorFog: "ضباب", colorSnow: "ثلج", colorThunder: "رعد", colorText: "النص", colorNavSelected: "التنقل", modeTitle: "الوضع", modeSimple: "بسيط", modeComplex: "متقدم", modeBattery: "توفير البطارية", humidity: "الرطوبة", wind: "الرياح", uv: "UV", pollution: "التلوث", pressure: "الضغط", sunrise: "شروق", sunset: "غروب", sizesTitle: "الأحجام", sizeFlag: "العلم", sizeTemp: "الحرارة", sizeWeather: "الطقس", sizeText: "النص", sizeNav: "التنقل", sizeTopTemp: "الحرارة العليا", forecastTitle: "توقعات 7 أيام", descClear: "صافي", descCloudy: "غائم", descFog: "ضبابي", descRain: "ممطر", descSnow: "ثلج", descThunder: "عاصفة", gearSnow: "المعدات: معطف", gearThunder: "المعدات: بالداخل", simpleForecastTitle: "هذا الأسبوع", fillIcon: "تعبئة الأيقونة", sizeComplexGrid: "الشبكة المتقدمة", sizeForecast: "حجم التوقعات", mapYourLocation: "موقعك", mapYouAreHere: "أنت هنا!", mapCurrentUni: "الجامعة الحالية", mapLocAccessReq: "الوصول إلى الموقع مطلوب", mapDistanceTo: "المسافة إلى", mapTip: "💡 نصيحة: استخدم شريط البحث في الصفحة الرئيسية لاستكشاف جامعات المملكة المتحدة المختلفة. سيتم تحديث الخريطة لإظهار موقع كل حرم جامعي!", mapGettingLoc: "جاري تحديد موقعك...", mapFailLoad: "فشل تحميل الخريطة", mapRetry: "إعادة المحاولة" },
+    HI: { gearClearDay: "गियर: धूप का चश्मा", gearClearNight: "गियर: जैकेट", gearRain: "गियर: छाता", searchPlaceholder: "कैंपस खोजें...", optionsTitle: "सेटिंग्स", langPrefTitle: "भाषा", primaryLangLabel: "प्राथमिक भाषा", secondaryLangLabel: "द्वितीयक भाषा", studentProfile: "प्रोफ़ाइल", manageId: "आईडी प्रबंधित करें", notifications: "सूचनाएं", weatherAlerts: "अलर्ट", mapTitle: "नक्शा", mapComingSoon: "चरण 2 में आ रहा है!", themeTitle: "थीम", themeDesc: "अनुकूलित करें", themeDynamic: "डायनामिक", themeMidnight: "मिडनाइट", themeSunset: "सनसेट", themeQMUL: "QMUL ब्लू", themeForest: "फॉरेस्ट", themeProtanopia: "लाल-अंधा", themeDeuteranopia: "हरा-अंधा", themeTritanopia: "नीला-अंधा", previewTitle: "पूर्वावलोकन", themeCustom: "कस्टम थीम", bgClear: "साफ़", bgCloudy: "बादल", bgFog: "कोहरा", bgRain: "बारिश", bgSnow: "बर्फ", bgThunder: "आंधी", dayStr: "दिन", nightStr: "रात", styleSun: "सूर्य आइकन", styleMoon: "चंद्रमा आइकन", styleCloudy: "बादल आइकन", styleFog: "कोहरा आइकन", styleRain: "बारिश आइकन", styleSnow: "बर्फ आइकन", styleThunder: "आंधी आइकन", tapToToggle: "बदलने के लिए टैप करें", bgColors: "पृष्ठभूमि", elementColors: "तत्व", colorSun: "सूर्य", colorMoon: "चंद्रमा", colorRain: "बारिश", colorCloud: "बादल", colorFog: "कोहरा", colorSnow: "बर्फ", colorThunder: "आंधी", colorText: "टेक्स्ट", colorNavSelected: "नेव", modeTitle: "मोड", modeSimple: "सरल", modeComplex: "जटिल", modeBattery: "बैटरी सेवर", humidity: "नमी", wind: "हवा", uv: "यूवी", pollution: "प्रदूषण", pressure: "दबाव", sunrise: "सूर्योदय", sunset: "सूर्यास्त", sizesTitle: "आकार", sizeFlag: "ध्वज", sizeTemp: "तापमान", sizeWeather: "मौसम", sizeText: "टेक्स्ट", sizeNav: "नेव", sizeTopTemp: "शीर्ष तापमान", forecastTitle: "7-दिन का पूर्वानुमान", descClear: "साफ", descCloudy: "बादल", descFog: "कोहरा", descRain: "बारिश", descSnow: "बर्फ", descThunder: "आंधी", gearSnow: "गियर: भारी कोट", gearThunder: "गियर: घर के अंदर", simpleForecastTitle: "इस सप्ताह", fillIcon: "आइकन भरें", sizeComplexGrid: "जटिल ग्रिड", sizeForecast: "पूर्वानुमान का आकार", mapYourLocation: "आपका स्थान", mapYouAreHere: "आप यहाँ हैं!", mapCurrentUni: "वर्तमान विश्वविद्यालय", mapLocAccessReq: "स्थान पहुँच आवश्यक है", mapDistanceTo: "दूरी", mapTip: "💡 टिप: विभिन्न यूके विश्वविद्यालयों का पता लगाने के लिए होम पेज पर सर्च बार का उपयोग करें। नक्शा प्रत्येक परिसर का स्थान दिखाने के लिए अपडेट होगा!", mapGettingLoc: "आपका स्थान प्राप्त कर रहा है...", mapFailLoad: "नक्शा लोड करने में विफल", mapRetry: "पुनः प्रयास करें" },
+    BN: { gearClearDay: "গিয়ার: সানগ্লাস", gearClearNight: "গিয়ার: জ্যাকেট", gearRain: "গিয়ার: ছাতা", searchPlaceholder: "ক্যাম্পাস খুঁজুন...", optionsTitle: "সেটিংস", langPrefTitle: "ভাষা", primaryLangLabel: "প্রাথমিক ভাষা", secondaryLangLabel: "মাধ্যমিক ভাষা", studentProfile: "প্রোফাইল", manageId: "আইডি পরিচালনা", notifications: "বিজ্ঞপ্তি", weatherAlerts: "সতর্কতা", mapTitle: "মানচিত্র", mapComingSoon: "ফেজ 2 এ আসছে!", themeTitle: "থিম", themeDesc: "কাস্টমাইজ করুন", themeDynamic: "ডায়নামিক", themeMidnight: "মিডনাইট", themeSunset: "সানসেট", themeQMUL: "QMUL নীল", themeForest: "ফরেস্ট", themeProtanopia: "লাল-অন্ধ", themeDeuteranopia: "সবুজ-অন্ধ", themeTritanopia: "নীল-অন্ধ", previewTitle: "প্রিভিউ", themeCustom: "কাস্টম থিম", bgClear: "পরিষ্কার", bgCloudy: "মেঘলা", bgFog: "কুয়াশা", bgRain: "বৃষ্টি", bgSnow: "তুষার", bgThunder: "বজ্রপাত", dayStr: "দিন", nightStr: "রাত", styleSun: "সূর্য আইকন", styleMoon: "চাঁদ আইকন", styleCloudy: "মেঘলা আইকন", styleFog: "কুয়াশা আইকন", styleRain: "বৃষ্টির আইকন", styleSnow: "তুষার আইকন", styleThunder: "বজ্রপাত আইকন", tapToToggle: "পরিবর্তন করতে আলতো চাপুন", bgColors: "পটভূমি", elementColors: "উপাদান", colorSun: "সূর্য", colorMoon: "চাঁদ", colorRain: "বৃষ্টি", colorCloud: "মেঘ", colorFog: "কুয়াশা", colorSnow: "তুষার", colorThunder: "বজ্রপাত", colorText: "টেক্সট", colorNavSelected: "নেভ", modeTitle: "মোড", modeSimple: "সাধারণ", modeComplex: "জটিল", modeBattery: "ব্যাটারি সেভার", humidity: "আর্দ্রতা", wind: "বাতাস", uv: "ইউভি", pollution: "দূষণ", pressure: "চাপ", sunrise: "সূর্যোদয়", sunset: "সূর্যাস্ত", sizesTitle: "আকার", sizeFlag: "পতাকা", sizeTemp: "তাপমাত্রা", sizeWeather: "আবহাওয়া", sizeText: "টেক্সট", sizeNav: "নেভিগেশন", sizeTopTemp: "শীর্ষ তাপমাত্রা", forecastTitle: "৭ দিনের পূর্বাভাস", descClear: "পরিষ্কার", descCloudy: "মেঘলা", descFog: "কুয়াশা", descRain: "বৃষ্টি", descSnow: "তুষার", descThunder: "বজ্রপাত", gearSnow: "গিয়ার: ভারী কোট", gearThunder: "গিয়ার: ঘরে থাকুন", simpleForecastTitle: "এই সপ্তাহ", fillIcon: "আইকন পূরণ করুন", sizeComplexGrid: "জটিল গ্রিড", sizeForecast: "পূর্বাভাসের আকার", mapYourLocation: "আপনার অবস্থান", mapYouAreHere: "আপনি এখানে আছেন!", mapCurrentUni: "বর্তমান বিশ্ববিদ্যালয়", mapLocAccessReq: "অবস্থান অ্যাক্সেস প্রয়োজন", mapDistanceTo: "দূরত্ব", mapTip: "💡 টিপ: বিভিন্ন ইউকে বিশ্ববিদ্যালয় অন্বেষণ করতে হোম পৃষ্ঠায় অনুসন্ধান বার ব্যবহার করুন। মানচিত্র প্রতিটি ক্যাম্পাসের অবস্থান দেখানোর জন্য আপডেট হবে!", mapGettingLoc: "আপনার অবস্থান পাওয়া যাচ্ছে...", mapFailLoad: "মানচিত্র লোড করতে ব্যর্থ", mapRetry: "পুনরায় চেষ্টা করুন" }
   };
 
   const languages = [
@@ -270,7 +532,6 @@ export default function App() {
   const toggleLanguage = () => setIsViewingPrimary(!isViewingPrimary);
   const isRTL = activeLang === 'AR' || activeLang === 'FA';
 
-  // UPDATED: Added current variables for the 4 new weather elements
   let currentTextColor = '#FFFFFF';
   let currentSunColor = '#FBBF24'; 
   let currentMoonColor = '#FDE047'; 
@@ -286,9 +547,16 @@ export default function App() {
   const showTextFlag = isBatterySave || isColorBlindMode;
 
   if (isBatterySave) {
-    currentTextColor = '#FFFFFF'; currentSunColor = '#FFFFFF'; currentMoonColor = '#FFFFFF';
-    currentRainColor = '#FFFFFF'; currentCloudColor = '#FFFFFF'; currentFogColor = '#FFFFFF';
-    currentSnowColor = '#FFFFFF'; currentThunderColor = '#FFFFFF'; currentNavActive = '#22C55E'; currentNavInactive = '#9CA3AF';
+    currentTextColor = '#22C55E'; 
+    currentSunColor = '#22C55E'; 
+    currentMoonColor = '#22C55E';
+    currentRainColor = '#22C55E'; 
+    currentCloudColor = '#22C55E'; 
+    currentFogColor = '#22C55E';
+    currentSnowColor = '#22C55E'; 
+    currentThunderColor = '#22C55E'; 
+    currentNavActive = '#4ADE80'; 
+    currentNavInactive = '#166534';
   } else if (appTheme === 'custom') {
     currentTextColor = customColors.text; currentSunColor = customColors.sun; currentMoonColor = customColors.moon;
     currentRainColor = customColors.rain; currentCloudColor = customColors.cloud; currentFogColor = customColors.fog;
@@ -303,15 +571,15 @@ export default function App() {
     currentNavActive = '#00BFA5'; 
   }
 
-  // UPDATED: Fill property is now dynamically bound to the customFills state for each individual category!
   const tc = { color: currentTextColor };
-  const sunStyle = { color: currentSunColor, fill: customFills.sun ? currentSunColor : 'transparent' };
-  const moonStyle = { color: currentMoonColor, fill: customFills.moon ? currentMoonColor : 'transparent' };
-  const rainStyle = { color: currentRainColor, fill: customFills.rain ? currentRainColor : 'transparent' };
-  const cloudStyle = { color: currentCloudColor, fill: customFills.cloudy ? currentCloudColor : 'transparent' };
-  const fogStyle = { color: currentFogColor, fill: customFills.fog ? currentFogColor : 'transparent' };
-  const snowStyle = { color: currentSnowColor, fill: customFills.snow ? currentSnowColor : 'transparent' };
-  const thunderStyle = { color: currentThunderColor, fill: customFills.thunder ? currentThunderColor : 'transparent' };
+  const sunStyle = { color: currentSunColor, fill: isBatterySave ? 'transparent' : (customFills.sun ? currentSunColor : 'transparent') };
+  const moonStyle = { color: currentMoonColor, fill: isBatterySave ? 'transparent' : (customFills.moon ? currentMoonColor : 'transparent') };
+  const rainStyle = { color: currentRainColor, fill: isBatterySave ? 'transparent' : (customFills.rain ? currentRainColor : 'transparent') };
+  const cloudStyle = { color: currentCloudColor, fill: isBatterySave ? 'transparent' : (customFills.cloudy ? currentCloudColor : 'transparent') };
+  const fogStyle = { color: currentFogColor, fill: isBatterySave ? 'transparent' : (customFills.fog ? currentFogColor : 'transparent') };
+  const snowStyle = { color: currentSnowColor, fill: isBatterySave ? 'transparent' : (customFills.snow ? currentSnowColor : 'transparent') };
+  const thunderStyle = { color: currentThunderColor, fill: isBatterySave ? 'transparent' : (customFills.thunder ? currentThunderColor : 'transparent') };
+  
   const accentStyle = { color: currentNavActive };
   const activeNavStyle = { color: currentNavActive }; 
   const inactiveNavStyle = { color: currentNavInactive }; 
@@ -322,8 +590,10 @@ export default function App() {
   const textMult = appTheme === 'custom' && !isBatterySave ? customSizes.text : 1;
   const navMult = appTheme === 'custom' && !isBatterySave ? customSizes.nav : 1;
   const topTempMult = appTheme === 'custom' && !isBatterySave ? customSizes.topTemp : 1;
+  // NEW: Multipliers specifically mapped to the Complex Mode rendering engine
+  const complexGridMult = appTheme === 'custom' && !isBatterySave ? customSizes.complexGrid : 1;
+  const complexForecastMult = appTheme === 'custom' && !isBatterySave ? customSizes.complexForecast : 1;
 
-  // HIGH DETAIL ENGINE: Maps WMO codes to accurate icons and translated text/gear
   const getForecastDetails = (wmoCode, isDayTime = true) => {
     const ActiveSun = sunIconMap[customIcons.sun] || Sun;
     const ActiveMoon = moonIconMap[customIcons.moon] || Moon;
@@ -336,7 +606,6 @@ export default function App() {
     const baseIcon = isDayTime ? ActiveSun : ActiveMoon;
     const baseStyle = isDayTime ? sunStyle : moonStyle;
     
-    // UPDATED: Now maps to the precise color style for each overlay/weather condition
     if (wmoCode === 0) return { baseIcon, overlayIcon: null, desc: t.descClear, gear: isDayTime ? t.gearClearDay : t.gearClearNight, baseStyle, overlayStyle: null, gearIcon: isDayTime ? Glasses : MoonStar };
     if (wmoCode <= 3) return { baseIcon, overlayIcon: ActiveCloudy, desc: t.descCloudy, gear: t.gearClearNight, baseStyle, overlayStyle: cloudStyle, gearIcon: Cloud };
     if (wmoCode <= 48) return { baseIcon, overlayIcon: ActiveFog, desc: t.descFog, gear: t.gearClearNight, baseStyle, overlayStyle: fogStyle, gearIcon: CloudFog };
@@ -356,7 +625,7 @@ export default function App() {
     >
       
       {/* Sidebar */}
-      <div className={`h-20 md:h-full w-full md:w-24 flex flex-row md:flex-col items-center justify-around md:justify-center md:gap-12 px-4 md:py-8 border-t md:border-t-0 md:border-r border-white/10 order-last md:order-first z-20 flex-shrink-0 ${isBatterySave ? 'bg-gray-900' : 'bg-black/10 backdrop-blur-md'}`}>
+      <div className={`h-20 md:h-full w-full md:w-24 flex flex-row md:flex-col items-center justify-around md:justify-center md:gap-12 px-4 md:py-8 border-t md:border-t-0 md:border-r flex-shrink-0 z-20 ${isBatterySave ? 'bg-black border-green-500/20' : 'bg-black/10 backdrop-blur-md border-white/10'} order-last md:order-first`}>
         <button onClick={() => setActivePage('home')} className={`flex flex-col items-center gap-1 transition-transform ${activePage === 'home' ? 'scale-110' : 'hover:scale-110'}`} style={activePage === 'home' ? activeNavStyle : inactiveNavStyle}>
           <Home size={28 * navMult} />
         </button>
@@ -374,9 +643,9 @@ export default function App() {
         {/* HEADER */}
         <div dir="ltr" className="flex justify-between items-start p-6 md:p-8 pt-12 md:pt-8 w-full z-20 flex-shrink-0">
           <div style={{ transform: `scale(${flagMult})`, transformOrigin: 'top left' }}>
-            <button onClick={toggleLanguage} className={`h-8 rounded shadow-md overflow-hidden hover:scale-105 transition-transform w-12 flex items-center justify-center ${showTextFlag ? (isBatterySave ? 'bg-gray-800 border border-gray-600' : 'bg-black/20 border border-white/20') : 'bg-white'}`} title="Toggle Language">
+            <button onClick={toggleLanguage} className={`h-8 rounded shadow-md overflow-hidden hover:scale-105 transition-transform w-12 flex items-center justify-center ${showTextFlag ? (isBatterySave ? 'bg-black border border-green-500/30' : 'bg-black/20 border border-white/20') : 'bg-white'}`} title="Toggle Language">
               {showTextFlag ? (
-                <span className="text-xs font-bold" style={isBatterySave ? {color: 'white'} : tc}>{activeLang}</span>
+                <span className="text-xs font-bold" style={tc}>{activeLang}</span>
               ) : (
                 <img src={`https://flagcdn.com/${activeFlagCode}.svg`} alt={`${activeLang} Flag`} className="w-full h-full object-cover"/>
               )}
@@ -390,7 +659,7 @@ export default function App() {
           )}
 
           <div style={{ transform: `scale(${topTempMult})`, transformOrigin: 'top right' }}>
-            <button onClick={toggleUnit} className={`h-10 px-3 flex items-center justify-center gap-1 rounded-full transition-all font-bold shadow-sm ${isBatterySave ? 'bg-gray-800 border border-gray-600 text-white' : 'bg-white/20 hover:bg-white/30'}`} style={tc}>
+            <button onClick={toggleUnit} className={`h-10 px-3 flex items-center justify-center gap-1 rounded-full transition-all font-bold shadow-sm ${isBatterySave ? 'bg-black border border-green-500/30' : 'bg-white/20 hover:bg-white/30'}`} style={tc}>
               <Thermometer size={20} />
               <span className="text-sm">{unit === 'K' ? 'K' : `°${unit}`}</span>
             </button>
@@ -405,10 +674,10 @@ export default function App() {
             <div className={`flex-1 flex flex-col ${isComplex ? 'lg:flex-row lg:items-start lg:justify-center lg:gap-16 max-w-6xl' : 'items-center justify-start max-w-4xl'} pt-0 md:pt-4 pb-20 px-6 md:px-12 animate-in fade-in duration-500 mx-auto w-full min-h-full`}>
               
               {/* Left Column / Central Weather */}
-              <div className={`flex flex-col items-center justify-center flex-shrink-0 w-full lg:w-auto ${isComplex ? 'mb-8 lg:mb-0' : 'mb-8 mt-[-2rem]'}`}>
+              <div className={`flex flex-col items-center justify-center flex-shrink-0 w-full lg:w-auto ${isComplex ? 'mb-8 lg:mb-0' : 'mb-8'}`}>
                 
                 <div className="relative w-full max-w-sm mb-6 md:mb-10 z-30">
-                  <div className={`flex items-center px-4 py-3 rounded-full ${isBatterySave ? 'bg-gray-800 border border-gray-600' : 'bg-black/20 backdrop-blur-md border border-white/10'} transition-all shadow-lg`}>
+                  <div className={`flex items-center px-4 py-3 rounded-full transition-all shadow-lg ${isBatterySave ? 'bg-black border border-green-500/40' : 'bg-black/20 backdrop-blur-md border border-white/10'}`}>
                     <Search size={20} style={{ color: tc.color, opacity: 0.7 }} />
                     <input
                       type="text"
@@ -422,11 +691,12 @@ export default function App() {
                   </div>
                   
                   {isSearching && searchQuery && (
-                    <div className={`absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden max-h-56 overflow-y-auto custom-scrollbar shadow-2xl ${isBatterySave ? 'bg-gray-900 border border-gray-700' : 'bg-slate-800/90 backdrop-blur-xl border border-white/20'}`}>
+                    <div className={`absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden max-h-56 overflow-y-auto custom-scrollbar shadow-2xl ${isBatterySave ? 'bg-black border border-green-500/40' : 'bg-slate-800/90 backdrop-blur-xl border border-white/20'}`}>
                       {UK_UNIVERSITIES.filter(u => u.uni.toLowerCase().includes(searchQuery.toLowerCase()) || u.city.toLowerCase().includes(searchQuery.toLowerCase())).map((uni, idx) => (
                         <div
                           key={idx}
-                          className="px-5 py-4 hover:bg-white/10 cursor-pointer border-b border-white/5 last:border-0 transition-colors"
+                          className="px-5 py-4 cursor-pointer border-b last:border-0 transition-colors"
+                          style={{ borderColor: isBatterySave ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255,255,255,0.05)' }}
                           onClick={() => { setSelectedLocation(uni); setSearchQuery(''); setIsSearching(false); }}
                         >
                           <p className="font-bold text-sm" style={tc}>{uni.uni}</p>
@@ -452,11 +722,10 @@ export default function App() {
                       <Loader2 size={64 * weatherMult} className="animate-spin opacity-50" style={tc} />
                     </div>
                   ) : (
-                    // UPDATED: High-Detail Main Composite Icon Render
                     <div className="relative flex items-center justify-center w-[160px] h-[160px]">
                       <currentDetails.baseIcon size={120 * weatherMult} className="drop-shadow-lg" style={currentDetails.baseStyle} />
                       {currentDetails.overlayIcon && (
-                        <div className={`absolute bottom-2 ${isRTL ? 'left-2' : 'right-2'} bg-black/30 backdrop-blur-md rounded-full p-2.5 border border-white/10 shadow-2xl`}>
+                        <div className={`absolute bottom-2 ${isRTL ? 'left-2' : 'right-2'} rounded-full p-2.5 shadow-2xl ${isBatterySave ? 'bg-black border border-green-500/50' : 'bg-black/30 backdrop-blur-md border border-white/10'}`}>
                           <currentDetails.overlayIcon size={46 * weatherMult} style={currentDetails.overlayStyle} />
                         </div>
                       )}
@@ -468,8 +737,8 @@ export default function App() {
                   {isLoading ? "--°" : getDisplayTemperature()}
                 </h1>
 
-                <div className={`flex items-center gap-3 px-6 py-3 rounded-full mb-8 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-sm'}`} style={{ transform: `scale(${textMult})`, transformOrigin: 'center' }}>
-                  <currentDetails.gearIcon className={`rounded-full p-1.5 flex-shrink-0 ${isBatterySave ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`} size={32} />
+                <div className={`flex items-center gap-3 px-6 py-3 rounded-full mb-8 ${isBatterySave ? 'bg-black border border-green-500/30' : 'bg-white/10 backdrop-blur-sm'}`} style={{ transform: `scale(${textMult})`, transformOrigin: 'center' }}>
+                  <currentDetails.gearIcon className={`rounded-full p-1.5 flex-shrink-0 ${isBatterySave ? 'bg-black border border-green-500 text-green-500' : 'bg-white text-gray-800'}`} size={32} />
                   <span className="font-medium text-lg md:text-xl tracking-wide" style={tc}>
                     {currentDetails.gear}
                   </span>
@@ -489,7 +758,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* UPDATED: Simple Mode 7-Day Forecast (No Scrollbar, Full Width Grid) */}
                 {!isComplex && weatherData?.forecast && (
                   <div className="w-full max-w-2xl mt-10 animate-in slide-in-from-bottom-8 duration-500">
                     <h4 className="text-sm font-bold mb-3 px-2 opacity-80 text-center md:text-left" style={tc}>{t.simpleForecastTitle}</h4>
@@ -498,14 +766,13 @@ export default function App() {
                         const wmo = getForecastDetails(day.weatherCode, true);
                         const dateStr = new Date(day.dateRaw).toLocaleDateString(activeLang.toLowerCase(), { weekday: 'short' });
                         return (
-                          <div key={idx} className={`flex flex-col items-center justify-center py-3 px-1 md:px-2 rounded-2xl ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-md shadow-sm border border-white/5'}`}>
+                          <div key={idx} className={`flex flex-col items-center justify-center py-3 px-1 md:px-2 rounded-2xl ${isBatterySave ? 'bg-black border border-green-500/30' : 'bg-white/10 backdrop-blur-md shadow-sm border border-white/5'}`}>
                             <span className="text-[10px] md:text-xs font-bold capitalize mb-2" style={tc}>{dateStr}</span>
                             
-                            {/* Composite Icon for Simple Mode */}
                             <div className="relative w-6 h-6 md:w-8 md:h-8 flex items-center justify-center mb-2">
                                 <wmo.baseIcon size={20} className="md:w-6 md:h-6 opacity-90" style={wmo.baseStyle} />
                                 {wmo.overlayIcon && (
-                                  <div className={`absolute -bottom-1 ${isRTL ? '-left-1' : '-right-1'} bg-black/50 backdrop-blur-sm rounded-full p-0.5 md:p-1`}>
+                                  <div className={`absolute -bottom-1 ${isRTL ? '-left-1' : '-right-1'} rounded-full p-0.5 md:p-1 ${isBatterySave ? 'bg-black border border-green-500/50' : 'bg-black/50 backdrop-blur-sm'}`}>
                                     <wmo.overlayIcon size={10} className="md:w-3 md:h-3" style={wmo.overlayStyle} />
                                   </div>
                                 )}
@@ -526,84 +793,84 @@ export default function App() {
                 <div className={`w-full lg:w-[480px] lg:mt-24 mt-6 animate-in slide-in-from-bottom-8 ${isRTL ? 'lg:slide-in-from-left-8' : 'lg:slide-in-from-right-8'} duration-700 flex-shrink-0 z-10`}>
                   <div className="w-16 h-1 bg-white/20 rounded-full mx-auto mb-6 lg:hidden"></div>
                   
-                  {/* Current Details 6-Grid */}
-                  <div className="grid grid-cols-2 gap-3 md:gap-4 mb-6">
-                    <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
-                      <Sunrise size={22} style={sunStyle} />
-                      <div>
-                        <p className="text-xs opacity-80" style={tc}>{t.sunrise}</p>
-                        <p className="text-lg font-bold" style={tc}>{weatherData.sunrise}</p>
-                      </div>
-                    </div>
-                    <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
-                      <Sunset size={22} style={sunStyle} />
-                      <div>
-                        <p className="text-xs opacity-80" style={tc}>{t.sunset}</p>
-                        <p className="text-lg font-bold" style={tc}>{weatherData.sunset}</p>
-                      </div>
-                    </div>
-                    <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
-                      <Droplets size={22} style={rainStyle} />
-                      <div>
-                        <p className="text-xs opacity-80" style={tc}>{t.humidity}</p>
-                        <p className="text-lg font-bold" style={tc}>{weatherData.humidity}</p>
-                      </div>
-                    </div>
-                    <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
-                      <Wind size={22} style={rainStyle} />
-                      <div>
-                        <p className="text-xs opacity-80" style={tc}>{t.wind}</p>
-                        <p className="text-lg font-bold" style={tc}>{weatherData.wind}</p>
-                      </div>
-                    </div>
-                    <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
-                      <Activity size={22} style={accentStyle} />
-                      <div>
-                        <p className="text-xs opacity-80" style={tc}>{t.uv}</p>
-                        <p className="text-lg font-bold" style={tc}>{weatherData.uv}</p>
-                      </div>
-                    </div>
-                    <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
-                      <CloudFog size={22} style={tc} />
-                      <div>
-                        <p className="text-xs opacity-80" style={tc}>{t.pollution}</p>
-                        <p className="text-sm font-bold" style={tc}>{weatherData.pollution}</p>
-                      </div>
-                    </div>
-                    <div className={`p-4 rounded-2xl flex flex-col gap-2 col-span-2 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
-                      <div className="flex justify-between items-center w-full">
-                        <div className="flex gap-2 items-center">
-                          <Gauge size={22} style={accentStyle} />
-                          <div>
-                            <p className="text-xs opacity-80" style={tc}>{t.pressure}</p>
-                            <p className="text-lg font-bold" style={tc}>{weatherData.pressure}</p>
-                          </div>
+                  {/* UPDATED: Applied Complex Grid Scale Customization */}
+                  <div className="mb-6 transition-transform" style={{ transform: `scale(${complexGridMult})`, transformOrigin: isRTL ? 'top right' : 'top left' }}>
+                    <div className="grid grid-cols-2 gap-3 md:gap-4">
+                      <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-black border border-green-500/30' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
+                        <Sunrise size={22} style={sunStyle} />
+                        <div>
+                          <p className="text-xs opacity-80" style={tc}>{t.sunrise}</p>
+                          <p className="text-lg font-bold" style={tc}>{weatherData.sunrise}</p>
                         </div>
-                        <div className="flex gap-2">
-                          <ArrowDown size={20} style={{ color: currentRainColor }} />
-                          <ArrowUp size={20} style={{ color: currentSunColor, opacity: 0.5 }} />
+                      </div>
+                      <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-black border border-green-500/30' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
+                        <Sunset size={22} style={sunStyle} />
+                        <div>
+                          <p className="text-xs opacity-80" style={tc}>{t.sunset}</p>
+                          <p className="text-lg font-bold" style={tc}>{weatherData.sunset}</p>
+                        </div>
+                      </div>
+                      <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-black border border-green-500/30' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
+                        <Droplets size={22} style={rainStyle} />
+                        <div>
+                          <p className="text-xs opacity-80" style={tc}>{t.humidity}</p>
+                          <p className="text-lg font-bold" style={tc}>{weatherData.humidity}</p>
+                        </div>
+                      </div>
+                      <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-black border border-green-500/30' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
+                        <Wind size={22} style={rainStyle} />
+                        <div>
+                          <p className="text-xs opacity-80" style={tc}>{t.wind}</p>
+                          <p className="text-lg font-bold" style={tc}>{weatherData.wind}</p>
+                        </div>
+                      </div>
+                      <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-black border border-green-500/30' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
+                        <Activity size={22} style={accentStyle} />
+                        <div>
+                          <p className="text-xs opacity-80" style={tc}>{t.uv}</p>
+                          <p className="text-lg font-bold" style={tc}>{weatherData.uv}</p>
+                        </div>
+                      </div>
+                      <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-black border border-green-500/30' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
+                        <CloudFog size={22} style={tc} />
+                        <div>
+                          <p className="text-xs opacity-80" style={tc}>{t.pollution}</p>
+                          <p className="text-sm font-bold" style={tc}>{weatherData.pollution}</p>
+                        </div>
+                      </div>
+                      <div className={`p-4 rounded-2xl flex flex-col gap-2 col-span-2 ${isBatterySave ? 'bg-black border border-green-500/30' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
+                        <div className="flex justify-between items-center w-full">
+                          <div className="flex gap-2 items-center">
+                            <Gauge size={22} style={accentStyle} />
+                            <div>
+                              <p className="text-xs opacity-80" style={tc}>{t.pressure}</p>
+                              <p className="text-lg font-bold" style={tc}>{weatherData.pressure}</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <ArrowDown size={20} style={{ color: currentRainColor }} />
+                            <ArrowUp size={20} style={{ color: currentSunColor, opacity: 0.5 }} />
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* UPDATED: 7-Day Forecast List with Composite Icons */}
                   {weatherData.forecast && weatherData.forecast.length > 0 && (
-                    <div className="w-full pb-8">
+                    <div className="w-full pb-8 transition-transform" style={{ transform: `scale(${complexForecastMult})`, transformOrigin: isRTL ? 'top right' : 'top left' }}>
                       <h4 className="text-xl font-bold mb-4 px-1" style={tc}>{t.forecastTitle}</h4>
                       <div className="flex flex-col gap-3">
                         {weatherData.forecast.map((day, idx) => {
                           const wmo = getForecastDetails(day.weatherCode, true);
                           const formattedDate = new Date(day.dateRaw).toLocaleDateString(activeLang.toLowerCase(), { weekday: 'long', day: 'numeric', month: 'long' });
                           return (
-                            <div key={idx} className={`flex items-center justify-between p-4 rounded-2xl ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5 hover:bg-white/20 transition-colors cursor-default'}`}>
+                            <div key={idx} className={`flex items-center justify-between p-4 rounded-2xl transition-colors cursor-default ${isBatterySave ? 'bg-black border border-green-500/30 hover:bg-green-900/20' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5 hover:bg-white/20'}`}>
                               <div className="flex items-center gap-4">
                                 
-                                {/* Composite Icon for List View */}
                                 <div className="relative flex items-center justify-center w-10 h-10 flex-shrink-0">
                                     <wmo.baseIcon size={32} style={wmo.baseStyle} className="opacity-90" />
                                     {wmo.overlayIcon && (
-                                      <div className={`absolute -bottom-1 ${isRTL ? '-left-1' : '-right-1'} bg-black/40 backdrop-blur-md rounded-full p-1`}>
+                                      <div className={`absolute -bottom-1 ${isRTL ? '-left-1' : '-right-1'} rounded-full p-1 ${isBatterySave ? 'bg-black border border-green-500/50' : 'bg-black/40 backdrop-blur-md'}`}>
                                         <wmo.overlayIcon size={14} style={wmo.overlayStyle} />
                                       </div>
                                     )}
@@ -643,7 +910,7 @@ export default function App() {
                 {t.optionsTitle}
               </h2>
               
-              <div className={`p-5 rounded-2xl flex flex-col gap-4 mb-4 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-sm'}`}>
+              <div className={`p-5 rounded-2xl flex flex-col gap-4 mb-4 ${isBatterySave ? 'bg-black border border-green-500/30' : 'bg-white/10 backdrop-blur-sm'}`}>
                 <div className="flex items-center gap-2 mb-1">
                   <Activity size={22} style={accentStyle} />
                   <p className="font-semibold text-lg" style={tc}>{t.modeTitle}</p>
@@ -651,14 +918,14 @@ export default function App() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <button 
                     onClick={() => setAppMode('simple')} 
-                    className={`py-2.5 rounded-xl border text-sm md:text-base font-bold transition-all ${appMode === 'simple' ? (!isBatterySave ? 'text-black shadow-lg' : 'bg-gray-700 text-white border-gray-500 shadow-lg') : (isBatterySave ? 'border-gray-800 text-gray-500 hover:bg-gray-800' : 'border-white/20 hover:bg-white/10')}`}
+                    className={`py-2.5 rounded-xl border text-sm md:text-base font-bold transition-all ${appMode === 'simple' ? (!isBatterySave ? 'text-black shadow-lg' : 'bg-green-500/20 text-green-500 border-green-500 shadow-lg shadow-green-500/20') : (isBatterySave ? 'border-green-500/30 text-green-700 hover:bg-green-500/10' : 'border-white/20 hover:bg-white/10')}`}
                     style={appMode === 'simple' && !isBatterySave ? { backgroundColor: currentNavActive, borderColor: currentNavActive } : { color: tc.color }}
                   >
                     {t.modeSimple}
                   </button>
                   <button 
                     onClick={() => setAppMode('complex')} 
-                    className={`py-2.5 rounded-xl border text-sm md:text-base font-bold transition-all ${appMode === 'complex' ? (!isBatterySave ? 'text-black shadow-lg' : 'bg-gray-700 text-white border-gray-500 shadow-lg') : (isBatterySave ? 'border-gray-800 text-gray-500 hover:bg-gray-800' : 'border-white/20 hover:bg-white/10')}`}
+                    className={`py-2.5 rounded-xl border text-sm md:text-base font-bold transition-all ${appMode === 'complex' ? (!isBatterySave ? 'text-black shadow-lg' : 'bg-green-500/20 text-green-500 border-green-500 shadow-lg shadow-green-500/20') : (isBatterySave ? 'border-green-500/30 text-green-700 hover:bg-green-500/10' : 'border-white/20 hover:bg-white/10')}`}
                     style={appMode === 'complex' && !isBatterySave ? { backgroundColor: currentNavActive, borderColor: currentNavActive } : { color: tc.color }}
                   >
                     {t.modeComplex}
@@ -673,7 +940,7 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className={`p-5 rounded-2xl flex flex-col gap-4 ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-sm'}`}>
+                <div className={`p-5 rounded-2xl flex flex-col gap-4 ${isBatterySave ? 'bg-black border border-green-500/30' : 'bg-white/10 backdrop-blur-sm'}`}>
                   <div className="flex items-center gap-2 mb-1">
                     <Globe size={22} style={accentStyle} />
                     <p className="font-semibold text-lg" style={tc}>{t.langPrefTitle}</p>
@@ -682,31 +949,31 @@ export default function App() {
                   <div className="flex flex-col gap-1.5">
                     <label className="text-sm" style={{ color: tc.color, opacity: 0.8 }}>{t.primaryLangLabel}</label>
                     <select value={primaryLang} onChange={(e) => setPrimaryLang(e.target.value)} className="bg-black/20 rounded-lg p-2.5 outline-none border border-white/10" style={tc}>
-                      {languages.map(lang => (<option key={`pri-${lang.code}`} value={lang.code} className="bg-slate-800 text-white">{lang.name}</option>))}
+                      {languages.map(lang => (<option key={`pri-${lang.code}`} value={lang.code} className="bg-black text-white">{lang.name}</option>))}
                     </select>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
                     <label className="text-sm" style={{ color: tc.color, opacity: 0.8 }}>{t.secondaryLangLabel}</label>
                     <select value={secondaryLang} onChange={(e) => setSecondaryLang(e.target.value)} className="bg-black/20 rounded-lg p-2.5 outline-none border border-white/10" style={tc}>
-                      {languages.map(lang => (<option key={`sec-${lang.code}`} value={lang.code} className="bg-slate-800 text-white">{lang.name}</option>))}
+                      {languages.map(lang => (<option key={`sec-${lang.code}`} value={lang.code} className="bg-black text-white">{lang.name}</option>))}
                     </select>
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-4">
-                  <div onClick={() => setActivePage('theme-selection')} className={`p-5 rounded-2xl flex items-center justify-between transition-colors cursor-pointer shadow-sm ${isBatterySave ? 'bg-gray-900 border border-gray-800 opacity-50 cursor-not-allowed' : 'bg-white/10 backdrop-blur-sm hover:bg-white/20'}`}>
+                  <div onClick={() => setActivePage('theme-selection')} className={`p-5 rounded-2xl flex items-center justify-between transition-colors cursor-pointer shadow-sm ${isBatterySave ? 'bg-black border border-green-500/30 opacity-50 cursor-not-allowed' : 'bg-white/10 backdrop-blur-sm hover:bg-white/20'}`}>
                     <div className="flex items-center gap-4">
-                      <Palette size={26} style={isBatterySave ? { color: '#6B7280' } : accentStyle} />
+                      <Palette size={26} style={isBatterySave ? { color: '#22C55E' } : accentStyle} />
                       <div>
                         <p className="font-semibold text-lg" style={tc}>{t.themeTitle}</p>
                         <p className="text-sm" style={{ color: tc.color, opacity: 0.8 }}>{isBatterySave ? 'Disabled in Battery Saver' : t.themeDesc}</p>
                       </div>
                     </div>
-                    <div className="text-xs font-bold tracking-wider bg-white/20 px-3 py-1.5 rounded-full capitalize" style={tc}>{isBatterySave ? 'Off' : appTheme}</div>
+                    <div className="text-xs font-bold tracking-wider px-3 py-1.5 rounded-full capitalize" style={{ ...tc, backgroundColor: isBatterySave ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255, 255, 255, 0.2)' }}>{isBatterySave ? 'Off' : appTheme}</div>
                   </div>
 
-                  <div className={`p-5 rounded-2xl flex items-center gap-4 transition-colors cursor-pointer ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-sm hover:bg-white/20'}`}>
+                  <div className={`p-5 rounded-2xl flex items-center gap-4 transition-colors cursor-pointer ${isBatterySave ? 'bg-black border border-green-500/30 hover:bg-green-900/30' : 'bg-white/10 backdrop-blur-sm hover:bg-white/20'}`}>
                     <User size={26} style={accentStyle} />
                     <div>
                       <p className="font-semibold text-lg" style={tc}>{t.studentProfile}</p>
@@ -714,7 +981,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className={`p-5 rounded-2xl flex items-center gap-4 transition-colors cursor-pointer ${isBatterySave ? 'bg-gray-900 border border-gray-800' : 'bg-white/10 backdrop-blur-sm hover:bg-white/20'}`}>
+                  <div className={`p-5 rounded-2xl flex items-center gap-4 transition-colors cursor-pointer ${isBatterySave ? 'bg-black border border-green-500/30 hover:bg-green-900/30' : 'bg-white/10 backdrop-blur-sm hover:bg-white/20'}`}>
                     <Bell size={26} style={accentStyle} />
                     <div>
                       <p className="font-semibold text-lg" style={tc}>{t.notifications}</p>
@@ -764,7 +1031,6 @@ export default function App() {
                   </div>
 
                   <div className="bg-white/10 p-4 rounded-full flex items-center justify-center">
-                    {/* UPDATED: Live Preview box also accurately shows composite icons */}
                     <div className="relative flex items-center justify-center w-16 h-16">
                         <currentDetails.baseIcon size={48 * weatherMult} className="drop-shadow-md" style={currentDetails.baseStyle} />
                         {currentDetails.overlayIcon && (
@@ -812,6 +1078,49 @@ export default function App() {
                     <Palette size={22} style={accentStyle} />
                     {t.themeCustom} Options
                   </h3>
+
+                  {/* UPDATED: SIZES SECTION MOVED TO TOP OF CUSTOM THEME MENU */}
+                  <div className="mb-8">
+                    <h4 className="text-sm font-semibold mb-3 flex items-center gap-2" style={tc}>
+                      <Settings size={18} style={accentStyle} /> 
+                      {t.sizesTitle}
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-x-4 gap-y-4">
+                      <label className="flex flex-col gap-1.5 text-sm" style={{ color: tc.color, opacity: 0.8 }}>
+                        {t.sizeFlag} ({customSizes.flag}x)
+                        <input type="range" min="0.5" max="1.5" step="0.1" value={customSizes.flag} onChange={e => setCustomSizes({...customSizes, flag: parseFloat(e.target.value)})} className="w-full" style={{ accentColor: currentNavActive }} />
+                      </label>
+                      <label className="flex flex-col gap-1.5 text-sm" style={{ color: tc.color, opacity: 0.8 }}>
+                        {t.sizeTemp} ({customSizes.temp}x)
+                        <input type="range" min="0.5" max="1.5" step="0.1" value={customSizes.temp} onChange={e => setCustomSizes({...customSizes, temp: parseFloat(e.target.value)})} className="w-full" style={{ accentColor: currentNavActive }} />
+                      </label>
+                      <label className="flex flex-col gap-1.5 text-sm" style={{ color: tc.color, opacity: 0.8 }}>
+                        {t.sizeTopTemp} ({customSizes.topTemp}x)
+                        <input type="range" min="0.5" max="1.5" step="0.1" value={customSizes.topTemp} onChange={e => setCustomSizes({...customSizes, topTemp: parseFloat(e.target.value)})} className="w-full" style={{ accentColor: currentNavActive }} />
+                      </label>
+                      <label className="flex flex-col gap-1.5 text-sm" style={{ color: tc.color, opacity: 0.8 }}>
+                        {t.sizeWeather} ({customSizes.weather}x)
+                        <input type="range" min="0.5" max="1.5" step="0.1" value={customSizes.weather} onChange={e => setCustomSizes({...customSizes, weather: parseFloat(e.target.value)})} className="w-full" style={{ accentColor: currentNavActive }} />
+                      </label>
+                      <label className="flex flex-col gap-1.5 text-sm" style={{ color: tc.color, opacity: 0.8 }}>
+                        {t.sizeText} ({customSizes.text}x)
+                        <input type="range" min="0.5" max="1.5" step="0.1" value={customSizes.text} onChange={e => setCustomSizes({...customSizes, text: parseFloat(e.target.value)})} className="w-full" style={{ accentColor: currentNavActive }} />
+                      </label>
+                      <label className="flex flex-col gap-1.5 text-sm" style={{ color: tc.color, opacity: 0.8 }}>
+                        {t.sizeNav} ({customSizes.nav}x)
+                        <input type="range" min="0.5" max="1.5" step="0.1" value={customSizes.nav} onChange={e => setCustomSizes({...customSizes, nav: parseFloat(e.target.value)})} className="w-full" style={{ accentColor: currentNavActive }} />
+                      </label>
+                      {/* NEW: Complex Specific Scaling Sliders */}
+                      <label className="flex flex-col gap-1.5 text-sm" style={{ color: tc.color, opacity: 0.8 }}>
+                        {t.sizeComplexGrid} ({customSizes.complexGrid}x)
+                        <input type="range" min="0.5" max="1.5" step="0.1" value={customSizes.complexGrid} onChange={e => setCustomSizes({...customSizes, complexGrid: parseFloat(e.target.value)})} className="w-full" style={{ accentColor: currentNavActive }} />
+                      </label>
+                      <label className="flex flex-col gap-1.5 text-sm" style={{ color: tc.color, opacity: 0.8 }}>
+                        {t.sizeForecast} ({customSizes.complexForecast}x)
+                        <input type="range" min="0.5" max="1.5" step="0.1" value={customSizes.complexForecast} onChange={e => setCustomSizes({...customSizes, complexForecast: parseFloat(e.target.value)})} className="w-full" style={{ accentColor: currentNavActive }} />
+                      </label>
+                    </div>
+                  </div>
                   
                   <div className="mb-8">
                     <h4 className="text-sm font-semibold mb-3 flex items-center gap-2" style={tc}>
@@ -819,7 +1128,6 @@ export default function App() {
                       {t.bgColors}
                     </h4>
                     
-                    {/* EXPANDED CUSTOM BACKGROUND COLORS FOR DETAILED WEATHER */}
                     <div className="grid grid-cols-2 md:grid-cols-6 gap-x-4 gap-y-4 mb-8">
                       <div className="flex flex-col gap-2">
                         <label className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: tc.color, opacity: 0.6 }}>
@@ -910,7 +1218,6 @@ export default function App() {
                       <Sun size={18} style={sunStyle} /> 
                       {t.elementColors}
                     </h4>
-                    {/* UPDATED: Added color pickers for Cloud, Fog, Snow, and Thunder elements */}
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-4 mb-8">
                       <label className="flex flex-col gap-1.5 text-sm" style={{ color: tc.color, opacity: 0.8 }}>
                         {t.colorSun}
@@ -950,39 +1257,8 @@ export default function App() {
                       </label>
                     </div>
 
-                    <h4 className="text-sm font-semibold mb-3 flex items-center gap-2" style={tc}>
-                      <Settings size={18} style={accentStyle} /> 
-                      {t.sizesTitle}
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-4 gap-y-4 mb-8">
-                      <label className="flex flex-col gap-1.5 text-sm" style={{ color: tc.color, opacity: 0.8 }}>
-                        {t.sizeFlag} ({customSizes.flag}x)
-                        <input type="range" min="0.5" max="1.5" step="0.1" value={customSizes.flag} onChange={e => setCustomSizes({...customSizes, flag: parseFloat(e.target.value)})} className="w-full" style={{ accentColor: currentNavActive }} />
-                      </label>
-                      <label className="flex flex-col gap-1.5 text-sm" style={{ color: tc.color, opacity: 0.8 }}>
-                        {t.sizeTemp} ({customSizes.temp}x)
-                        <input type="range" min="0.5" max="1.5" step="0.1" value={customSizes.temp} onChange={e => setCustomSizes({...customSizes, temp: parseFloat(e.target.value)})} className="w-full" style={{ accentColor: currentNavActive }} />
-                      </label>
-                      <label className="flex flex-col gap-1.5 text-sm" style={{ color: tc.color, opacity: 0.8 }}>
-                        {t.sizeWeather} ({customSizes.weather}x)
-                        <input type="range" min="0.5" max="1.5" step="0.1" value={customSizes.weather} onChange={e => setCustomSizes({...customSizes, weather: parseFloat(e.target.value)})} className="w-full" style={{ accentColor: currentNavActive }} />
-                      </label>
-                      <label className="flex flex-col gap-1.5 text-sm" style={{ color: tc.color, opacity: 0.8 }}>
-                        {t.sizeText} ({customSizes.text}x)
-                        <input type="range" min="0.5" max="1.5" step="0.1" value={customSizes.text} onChange={e => setCustomSizes({...customSizes, text: parseFloat(e.target.value)})} className="w-full" style={{ accentColor: currentNavActive }} />
-                      </label>
-                      <label className="flex flex-col gap-1.5 text-sm" style={{ color: tc.color, opacity: 0.8 }}>
-                        {t.sizeNav} ({customSizes.nav}x)
-                        <input type="range" min="0.5" max="1.5" step="0.1" value={customSizes.nav} onChange={e => setCustomSizes({...customSizes, nav: parseFloat(e.target.value)})} className="w-full" style={{ accentColor: currentNavActive }} />
-                      </label>
-                      <label className="flex flex-col gap-1.5 text-sm" style={{ color: tc.color, opacity: 0.8 }}>
-                        {t.sizeTopTemp} ({customSizes.topTemp}x)
-                        <input type="range" min="0.5" max="1.5" step="0.1" value={customSizes.topTemp} onChange={e => setCustomSizes({...customSizes, topTemp: parseFloat(e.target.value)})} className="w-full" style={{ accentColor: currentNavActive }} />
-                      </label>
-                    </div>
                   </div>
 
-                  {/* UPDATED: ALL 7 ICON CATEGORY SELECTIONS NOW FEATURE FILL TOGGLES */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <div className="flex items-center justify-between mb-3">
@@ -1134,22 +1410,101 @@ export default function App() {
           {/* --- PAGE: THEME SELECTION ERROR PREVENTION --- */}
           {activePage === 'theme-selection' && isBatterySave && (
             <div className="flex-1 flex flex-col items-center justify-center pt-4 animate-in fade-in">
-              <Battery size={60} className="text-gray-600 mb-4" />
-              <h2 className="text-2xl font-bold text-white mb-2">Themes Disabled</h2>
-              <p className="text-gray-400 text-center px-6">You are currently in Battery Saver mode. To customize your theme, please switch back to Simple or Complex Mode in the Settings menu.</p>
-              <button onClick={() => setActivePage('options')} className="mt-6 px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors">
+              <Battery size={60} className="text-green-500 mb-4" />
+              <h2 className="text-2xl font-bold text-green-500 mb-2">Themes Disabled</h2>
+              <p className="text-green-600 text-center px-6">You are currently in Battery Saver mode. To customize your theme, please switch back to Simple or Complex Mode in the Settings menu.</p>
+              <button onClick={() => setActivePage('options')} className="mt-6 px-6 py-2 bg-black border border-green-500 text-green-500 rounded-lg hover:bg-green-900/30 transition-colors">
                 Go back to Settings
               </button>
             </div>
           )}
 
           {/* --- PAGE: MAP --- */}
+          {/* UPDATED: Map layout correctly mirrors for RTL languages like Arabic and Persian */}
           {activePage === 'map' && (
-             <div className="flex-1 flex flex-col items-center justify-center animate-in fade-in duration-500">
-                <Map size={80} className="mb-6" style={{ color: tc.color, opacity: 0.5 }} />
-                <h2 className="text-2xl md:text-3xl font-bold text-center" style={tc}>{t.mapTitle}</h2>
-                <p className="text-center mt-3 text-base" style={{ color: tc.color, opacity: 0.8 }}>{t.mapComingSoon}</p>
-             </div>
+            <div className="flex-1 flex flex-col pt-4 px-6 md:px-12 pb-12 animate-in fade-in duration-500" dir={isRTL ? "rtl" : "ltr"}>
+              <h2 className="text-2xl md:text-3xl font-bold mb-6 flex items-center gap-2" style={tc}>
+                <Map size={28} />
+                {t.mapTitle}
+              </h2>
+              
+              {/* Show loading state */}
+              {isLoadingLocation && (
+                <div className={`rounded-2xl p-8 text-center ${isBatterySave ? 'bg-black border border-green-500/30' : 'bg-white/10'}`}>
+                  <div className="animate-pulse" style={tc}>{t.mapGettingLoc}</div>
+                </div>
+              )}
+              
+              {/* Show error state */}
+              {locationError && !isLoadingLocation && (
+                <div className="bg-red-500/20 backdrop-blur-sm rounded-2xl p-4 mb-4">
+                  <p className="text-white text-sm">{locationError}</p>
+                  <button 
+                    onClick={() => window.location.reload()} 
+                    className="mt-2 text-xs bg-white/20 px-3 py-1 rounded-full"
+                  >
+                    {t.mapRetry}
+                  </button>
+                </div>
+              )}
+              
+              {/* Display the map */}
+              {!isLoadingLocation && (
+                <div className="space-y-4">
+                  <CampusMap 
+                    userLocation={userLocation}
+                    campusLocation={{
+                      lat: selectedLocation.lat,
+                      lng: selectedLocation.lon
+                    }}
+                    currentCity={selectedLocation}
+                    t={t}
+                    isRTL={isRTL}
+                  />
+                  
+                  {/* Location info panel */}
+                  <div className={`p-5 rounded-2xl ${isBatterySave ? 'bg-black border border-green-500/30' : 'bg-white/10 backdrop-blur-sm'}`}>
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                      <div className={isRTL ? 'text-start' : 'text-left'}>
+                        <p className="text-sm font-semibold" style={tc}>{t.mapYourLocation}</p>
+                        {userLocation ? (
+                          <p className="text-xs mt-1" style={{ color: tc.color, opacity: 0.8 }}>
+                            Lat: {userLocation.lat.toFixed(4)}° | Lng: {userLocation.lng.toFixed(4)}°
+                          </p>
+                        ) : (
+                          <p className="text-xs mt-1" style={{ color: tc.color, opacity: 0.8 }}>{t.mapLocAccessReq}</p>
+                        )}
+                      </div>
+                      <div className={isRTL ? 'text-start md:text-end' : 'text-left md:text-right'}>
+                        <p className="text-sm font-semibold" style={tc}>{t.mapCurrentUni}</p>
+                        <p className="text-xs mt-1" style={{ color: tc.color, opacity: 0.8 }}>
+                          {selectedLocation.uni} - {selectedLocation.campus}
+                        </p>
+                        <p className="text-xs" style={{ color: tc.color, opacity: 0.6 }}>
+                          {selectedLocation.city}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Distance indicator */}
+                  {userLocation && (
+                    <div className={`p-5 rounded-2xl ${isBatterySave ? 'bg-black border border-green-500/30' : 'bg-white/10 backdrop-blur-sm'}`}>
+                      <p className="text-sm" style={tc}>
+                        📍 {t.mapDistanceTo} {selectedLocation.uni}: ~{calculateDistance(userLocation, { lat: selectedLocation.lat, lng: selectedLocation.lon })} km
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Info note about university search */}
+                  <div className={`p-4 rounded-2xl ${isBatterySave ? 'bg-green-500/10 border border-green-500/30' : 'bg-white/5'}`}>
+                    <p className={`text-xs ${isRTL ? 'text-start' : 'text-center'}`} style={{ color: tc.color, opacity: 0.6 }}>
+                      {t.mapTip}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
         </div>
