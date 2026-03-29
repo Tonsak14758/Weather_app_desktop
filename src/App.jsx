@@ -273,7 +273,6 @@ export default function App() {
     text: '#FFFFFF', navSelected: '#FBBF24' 
   });
   
-  // UPDATED: Added new size sliders for Complex Grid and Forecast List
   const [customSizes, setCustomSizes] = useState({
     flag: 1, temp: 1, weather: 1, text: 1, nav: 1, topTemp: 1, complexGrid: 1, complexForecast: 1
   });
@@ -452,6 +451,8 @@ export default function App() {
   const getThemeBackground = () => {
     if (isBatterySave) return 'bg-black'; 
     if (appTheme === 'custom') return ''; 
+    const { wmoCode, isDay } = weatherState;
+
     switch(appTheme) {
       case 'midnight': return 'bg-slate-900';
       case 'sunset': return 'bg-gradient-to-br from-orange-500 to-purple-800';
@@ -460,9 +461,18 @@ export default function App() {
       case 'protanopia': return 'bg-[#002B5B]'; 
       case 'deuteranopia': return 'bg-[#172B4D]'; 
       case 'tritanopia': return 'bg-[#212121]'; 
+      case 'achromatopsia': return 'bg-[#18181b]'; 
+      case 'colorful': 
+        if (wmoCode === 0) return isDay ? 'bg-gradient-to-tr from-yellow-300 via-orange-400 to-pink-500' : 'bg-gradient-to-tr from-indigo-900 via-purple-900 to-black';
+        if (wmoCode <= 3) return isDay ? 'bg-gradient-to-tr from-cyan-300 via-blue-400 to-indigo-400' : 'bg-gradient-to-tr from-slate-800 via-indigo-900 to-blue-900';
+        if (wmoCode <= 48) return isDay ? 'bg-gradient-to-tr from-gray-300 via-slate-400 to-gray-500' : 'bg-gradient-to-tr from-gray-700 via-slate-800 to-black';
+        if (wmoCode <= 69 || (wmoCode >= 80 && wmoCode <= 82)) return isDay ? 'bg-gradient-to-tr from-blue-600 via-indigo-700 to-slate-800' : 'bg-gradient-to-tr from-slate-900 via-blue-900 to-black';
+        if (wmoCode <= 79 || wmoCode === 85 || wmoCode === 86) return isDay ? 'bg-gradient-to-tr from-blue-200 via-cyan-300 to-white' : 'bg-gradient-to-tr from-slate-700 via-blue-800 to-indigo-900';
+        if (wmoCode >= 95) return isDay ? 'bg-gradient-to-tr from-purple-800 via-slate-900 to-black' : 'bg-gradient-to-tr from-fuchsia-900 via-purple-900 to-black';
+        return isDay ? 'bg-gradient-to-tr from-yellow-300 via-orange-400 to-pink-500' : 'bg-gradient-to-tr from-indigo-900 via-purple-900 to-black';
       default: break;
     }
-    const { wmoCode, isDay } = weatherState;
+    
     if (wmoCode === 0) return isDay ? 'bg-[#3B82F6]' : 'bg-[#0F3460]'; 
     if (wmoCode <= 3) return isDay ? 'bg-[#60A5FA]' : 'bg-[#1E3A8A]'; 
     if (wmoCode <= 48) return isDay ? 'bg-[#94A3B8]' : 'bg-[#334155]'; 
@@ -500,15 +510,14 @@ export default function App() {
     return (R * c).toFixed(2);
   }
 
-  // UPDATED: Added translations for the Battery Saver theme disabled screen
   const text = {
-    EN: { gearClearDay: "Gear: Sunglasses", gearClearNight: "Gear: Jacket", gearRain: "Gear: Umbrella", searchPlaceholder: "Search UK Campus...", optionsTitle: "Settings", langPrefTitle: "Languages", primaryLangLabel: "Primary Language", secondaryLangLabel: "Secondary Language", studentProfile: "Profile", manageId: "Manage ID", notifications: "Notifications", weatherAlerts: "Alerts", mapTitle: "Campus Map", mapComingSoon: "Map coming in Phase 2!", themeTitle: "Theme", themeDesc: "Customize appearance", themeDynamic: "Dynamic", themeMidnight: "Midnight", themeSunset: "Sunset", themeQMUL: "QMUL Blue", themeForest: "Forest", themeProtanopia: "Protanopia", themeDeuteranopia: "Deuteranopia", themeTritanopia: "Tritanopia", previewTitle: "Live Preview", themeCustom: "Custom Theme", bgClear: "Clear", bgCloudy: "Cloudy", bgFog: "Fog", bgRain: "Rain", bgSnow: "Snow", bgThunder: "Thunder", dayStr: "Day", nightStr: "Night", styleSun: "Sun Icon", styleMoon: "Moon Icon", styleCloudy: "Cloudy Icon", styleFog: "Fog Icon", styleRain: "Rain Icon", styleSnow: "Snow Icon", styleThunder: "Thunder Icon", tapToToggle: "Tap to cycle weather", bgColors: "Backgrounds", elementColors: "Elements", colorSun: "Sun", colorMoon: "Moon", colorRain: "Rain", colorCloud: "Cloud", colorFog: "Fog", colorSnow: "Snow", colorThunder: "Thunder", colorText: "Text", colorNavSelected: "Nav", modeTitle: "App Mode", modeSimple: "Simple Mode", modeComplex: "Complex Mode", modeBattery: "Battery Saver", humidity: "Humidity", wind: "Wind", uv: "UV Index", pollution: "Pollution", pressure: "Pressure", sunrise: "Sunrise", sunset: "Sunset", sizesTitle: "Sizes", sizeFlag: "Flag", sizeTemp: "Temp", sizeWeather: "Weather", sizeText: "Text", sizeNav: "Nav", sizeTopTemp: "Top Temp", forecastTitle: "7-Day Forecast", descClear: "Clear", descCloudy: "Cloudy", descFog: "Foggy", descRain: "Rain", descSnow: "Snow", descThunder: "Thunder", gearSnow: "Gear: Heavy Coat", gearThunder: "Gear: Indoors", simpleForecastTitle: "This Week", fillIcon: "Fill Icon", sizeComplexGrid: "Complex Grid", sizeForecast: "Forecast List", mapYourLocation: "Your Location", mapYouAreHere: "You are here!", mapCurrentUni: "Current University", mapLocAccessReq: "Location access required", mapDistanceTo: "Distance to", mapTip: "💡 Tip: Use the search bar on the home page to explore different UK universities. The map will update to show each campus location!", mapGettingLoc: "Getting your location...", mapFailLoad: "Failed to load map", mapRetry: "Retry", themeDisabledTitle: "Themes Disabled", themeDisabledDesc: "You are currently in Battery Saver mode. To customize your theme, please switch back to Simple or Complex Mode in the Settings menu.", backToSettings: "Go back to Settings" },
-    TH: { gearClearDay: "อุปกรณ์: แว่นกันแดด", gearClearNight: "อุปกรณ์: แจ็คเก็ต", gearRain: "อุปกรณ์: ร่ม", searchPlaceholder: "ค้นหาวิทยาเขต...", optionsTitle: "การตั้งค่า", langPrefTitle: "ภาษา", primaryLangLabel: "ภาษาหลัก", secondaryLangLabel: "ภาษารอง", studentProfile: "โปรไฟล์", manageId: "จัดการ ID", notifications: "การแจ้งเตือน", weatherAlerts: "เตือนสภาพอากาศ", mapTitle: "แผนที่", mapComingSoon: "มาในเฟส 2!", themeTitle: "ธีม", themeDesc: "ปรับแต่งแอป", themeDynamic: "ไดนามิก", themeMidnight: "มิดไนท์", themeSunset: "แสงอาทิตย์ตก", themeQMUL: "สีฟ้า QMUL", themeForest: "สีเขียวป่า", themeProtanopia: "ตาบอดสีแดง", themeDeuteranopia: "ตาบอดสีเขียว", themeTritanopia: "ตาบอดสีน้ำเงิน", previewTitle: "แสดงตัวอย่างสด", themeCustom: "ธีมกำหนดเอง", bgClear: "แจ่มใส", bgCloudy: "มีเมฆ", bgFog: "มีหมอก", bgRain: "ฝนตก", bgSnow: "หิมะตก", bgThunder: "พายุฝนฟ้าคะนอง", dayStr: "กลางวัน", nightStr: "กลางคืน", styleSun: "ไอคอนพระอาทิตย์", styleMoon: "ไอคอนพระจันทร์", styleCloudy: "ไอคอนเมฆ", styleFog: "ไอคอนหมอก", styleRain: "ไอคอนฝน", styleSnow: "ไอคอนหิมะ", styleThunder: "ไอคอนพายุ", tapToToggle: "แตะเพื่อสลับ", bgColors: "พื้นหลัง", elementColors: "องค์ประกอบ", colorSun: "พระอาทิตย์", colorMoon: "พระจันทร์", colorRain: "ฝน", colorCloud: "เมฆ", colorFog: "หมอก", colorSnow: "หิมะ", colorThunder: "พายุ", colorText: "ข้อความ", colorNavSelected: "เมนู", modeTitle: "โหมด", modeSimple: "โหมดปกติ", modeComplex: "โหมดรายละเอียด", modeBattery: "ประหยัดแบต", humidity: "ความชื้น", wind: "ลม", uv: "ดัชนี UV", pollution: "มลพิษ", pressure: "ความกดอากาศ", sunrise: "พระอาทิตย์ขึ้น", sunset: "พระอาทิตย์ตก", sizesTitle: "ขนาด", sizeFlag: "ธง", sizeTemp: "อุณหภูมิ", sizeWeather: "ไอคอน", sizeText: "ข้อความ", sizeNav: "แถบนำทาง", sizeTopTemp: "อุณหภูมิด้านบน", forecastTitle: "พยากรณ์ 7 วัน", descClear: "แจ่มใส", descCloudy: "มีเมฆ", descFog: "มีหมอก", descRain: "ฝนตก", descSnow: "หิมะตก", descThunder: "พายุ", gearSnow: "อุปกรณ์: เสื้อกันหนาว", gearThunder: "อุปกรณ์: อยู่ในร่ม", simpleForecastTitle: "สัปดาห์นี้", fillIcon: "เติมสีไอคอน", sizeComplexGrid: "ขนาดกริด", sizeForecast: "ขนาดพยากรณ์", mapYourLocation: "ตำแหน่งของคุณ", mapYouAreHere: "คุณอยู่ที่นี่!", mapCurrentUni: "มหาวิทยาลัยปัจจุบัน", mapLocAccessReq: "ต้องเข้าถึงตำแหน่ง", mapDistanceTo: "ระยะทางถึง", mapTip: "💡 เคล็ดลับ: ใช้แถบค้นหาบนหน้าแรกเพื่อสำรวจมหาวิทยาลัยต่างๆ ในสหราชอาณาจักร แผนที่จะอัปเดตเพื่อแสดงตำแหน่งของแต่ละวิทยาเขต!", mapGettingLoc: "กำลังหาตำแหน่งของคุณ...", mapFailLoad: "โหลดแผนที่ล้มเหลว", mapRetry: "ลองอีกครั้ง", themeDisabledTitle: "ปิดใช้งานธีม", themeDisabledDesc: "คุณกำลังอยู่ในโหมดประหยัดแบตเตอรี่ หากต้องการปรับแต่งธีม โปรดสลับกลับเป็นโหมดปกติหรือโหมดรายละเอียดในการตั้งค่า", backToSettings: "กลับไปที่การตั้งค่า" },
-    ZH: { gearClearDay: "装备：太阳镜", gearClearNight: "装备：外套", gearRain: "装备：雨伞", searchPlaceholder: "搜索校园...", optionsTitle: "设置", langPrefTitle: "语言偏好", primaryLangLabel: "主要语言", secondaryLangLabel: "次要语言", studentProfile: "档案", manageId: "管理 ID", notifications: "通知", weatherAlerts: "天气警报", mapTitle: "校园地图", mapComingSoon: "第二阶段推出！", themeTitle: "主题", themeDesc: "自定义外观", themeDynamic: "动态", themeMidnight: "午夜", themeSunset: "日落", themeQMUL: "QMUL 蓝", themeForest: "森林绿", themeProtanopia: "红色盲", themeDeuteranopia: "绿色盲", themeTritanopia: "蓝色盲", previewTitle: "实时预览", themeCustom: "自定义主题", bgClear: "晴朗", bgCloudy: "多云", bgFog: "雾", bgRain: "雨", bgSnow: "雪", bgThunder: "雷", dayStr: "白天", nightStr: "夜晚", styleSun: "太阳图标", styleMoon: "月亮图标", styleCloudy: "多云图标", styleFog: "雾图标", styleRain: "雨图标", styleSnow: "雪图标", styleThunder: "雷暴图标", tapToToggle: "点击切换", bgColors: "背景颜色", elementColors: "元素颜色", colorSun: "太阳", colorMoon: "月亮", colorRain: "雨水", colorCloud: "云", colorFog: "雾", colorSnow: "雪", colorThunder: "雷", colorText: "文本", colorNavSelected: "导航", modeTitle: "模式", modeSimple: "简单模式", modeComplex: "复杂模式", modeBattery: "省电模式", humidity: "湿度", wind: "风速", uv: "紫外线", pollution: "污染", pressure: "气压", sunrise: "日出", sunset: "日落", sizesTitle: "大小", sizeFlag: "国旗", sizeTemp: "温度", sizeWeather: "天气图标", sizeText: "文本", sizeNav: "导航栏", sizeTopTemp: "顶部温度", forecastTitle: "7天预报", descClear: "晴朗", descCloudy: "多云", descFog: "有雾", descRain: "下雨", descSnow: "下雪", descThunder: "雷暴", gearSnow: "装备：厚外套", gearThunder: "装备：室内", simpleForecastTitle: "本周", fillIcon: "填充图标", sizeComplexGrid: "复杂网格", sizeForecast: "预报大小", mapYourLocation: "您的位置", mapYouAreHere: "你在这里！", mapCurrentUni: "当前大学", mapLocAccessReq: "需要位置权限", mapDistanceTo: "距离", mapTip: "💡 提示：使用主页上的搜索栏探索不同的英国大学。地图将更新以显示每个校园的位置！", mapGettingLoc: "正在获取您的位置...", mapFailLoad: "地图加载失败", mapRetry: "重试", themeDisabledTitle: "主题已禁用", themeDisabledDesc: "您当前处于省电模式。要自定义主题，请在设置菜单中切换回简单或复杂模式。", backToSettings: "返回设置" },
-    FA: { gearClearDay: "تجهیزات: عینک آفتابی", gearClearNight: "تجهیزات: ژاکت", gearRain: "تجهیزات: چتر", searchPlaceholder: "جستجوی پردیس...", optionsTitle: "تنظیمات", langPrefTitle: "زبان‌ها", primaryLangLabel: "زبان اصلی", secondaryLangLabel: "زبان دوم", studentProfile: "پروفایل", manageId: "مدیریت شناسه", notifications: "اعلان‌ها", weatherAlerts: "هشدارها", mapTitle: "نقشه", mapComingSoon: "فاز 2 اضافه می‌شود!", themeTitle: "تم", themeDesc: "سفارشی سازی", themeDynamic: "پویا", themeMidnight: "نیمه شب", themeSunset: "غروب", themeQMUL: "آبی QMUL", themeForest: "جنگل", themeProtanopia: "کوررنگی قرمز", themeDeuteranopia: "کوررنگی سبز", themeTritanopia: "کوررنگی آبی", previewTitle: "پیش‌نمایش", themeCustom: "تم سفارشی", bgClear: "صاف", bgCloudy: "ابری", bgFog: "مه", bgRain: "باران", bgSnow: "برف", bgThunder: "رعد و برق", dayStr: "روز", nightStr: "شب", styleSun: "نماد خورشید", styleMoon: "نماد ماه", styleCloudy: "نماد ابری", styleFog: "نماد مه", styleRain: "نماد باران", styleSnow: "نماد برف", styleThunder: "نماد رعد و برق", tapToToggle: "ضربه بزنید", bgColors: "پس‌زمینه", elementColors: "عناصر", colorSun: "خورشید", colorMoon: "ماه", colorRain: "باران", colorCloud: "ابر", colorFog: "مه", colorSnow: "برف", colorThunder: "رعد و برق", colorText: "متن", colorNavSelected: "ناوبری", modeTitle: "حالت", modeSimple: "ساده", modeComplex: "پیشرفته", modeBattery: "ذخیره باتری", humidity: "رطوبت", wind: "باد", uv: "UV", pollution: "آلودگی", pressure: "فشار", sunrise: "طلوع", sunset: "غروب", sizesTitle: "اندازه‌ها", sizeFlag: "پرچم", sizeTemp: "دما", sizeWeather: "نماد", sizeText: "متن", sizeNav: "ناوبری", sizeTopTemp: "دمای بالا", forecastTitle: "پیش بینی 7 روزه", descClear: "صاف", descCloudy: "ابری", descFog: "مه آلود", descRain: "باران", descSnow: "برف", descThunder: "رعد و برق", gearSnow: "تجهیزات: پالتو", gearThunder: "تجهیزات: در خانه", simpleForecastTitle: "این هفته", fillIcon: "پر کردن نماد", sizeComplexGrid: "شبکه پیشرفته", sizeForecast: "اندازه پیش‌بینی", mapYourLocation: "مکان شما", mapYouAreHere: "شما اینجا هستید!", mapCurrentUni: "دانشگاه فعلی", mapLocAccessReq: "دسترسی به مکان لازم است", mapDistanceTo: "فاصله تا", mapTip: "💡 نکته: از نوار جستجو در صفحه اصلی برای کاوش در دانشگاه‌های مختلف انگلستان استفاده کنید. نقشه برای نشان دادن مکان هر پردیس به روز می شود!", mapGettingLoc: "در حال یافتن مکان شما...", mapFailLoad: "بارگیری نقشه ناموفق بود", mapRetry: "تلاش مجدد", themeDisabledTitle: "تم‌ها غیرفعال شدند", themeDisabledDesc: "شما در حال حاضر در حالت ذخیره باتری هستید. برای سفارشی کردن تم خود، لطفاً در منوی تنظیمات به حالت ساده یا پیشرفته برگردید.", backToSettings: "بازگشت به تنظیمات" },
-    AR: { gearClearDay: "المعدات: نظارات شمسية", gearClearNight: "المعدات: سترة", gearRain: "المعدات: مظلة", searchPlaceholder: "ابحث عن حرم جامعي...", optionsTitle: "الإعدادات", langPrefTitle: "اللغات", primaryLangLabel: "اللغة الأساسية", secondaryLangLabel: "اللغة الثانوية", studentProfile: "الملف الشخصي", manageId: "إدارة المعرف", notifications: "الإشعارات", weatherAlerts: "تنبيهات", mapTitle: "خريطة", mapComingSoon: "قادمة في المرحلة 2!", themeTitle: "السمة", themeDesc: "تخصيص المظهر", themeDynamic: "ديناميكي", themeMidnight: "منتصف الليل", themeSunset: "غروب", themeQMUL: "أزرق QMUL", themeForest: "غابة", themeProtanopia: "عمى أحمر", themeDeuteranopia: "عمى أخضر", themeTritanopia: "عمى أزرق", previewTitle: "معاينة", themeCustom: "سمة مخصصة", bgClear: "صافي", bgCloudy: "غائم", bgFog: "ضباب", bgRain: "مطر", bgSnow: "ثلج", bgThunder: "رعد", dayStr: "نهار", nightStr: "ليل", styleSun: "أيقونة الشمس", styleMoon: "أيقونة القمر", styleCloudy: "أيقونة غائم", styleFog: "أيقونة ضباب", styleRain: "أيقونة المطر", styleSnow: "أيقونة ثلج", styleThunder: "أيقونة رعد", tapToToggle: "انقر للتبديل", bgColors: "الخلفيات", elementColors: "العناصر", colorSun: "الشمس", colorMoon: "القمر", colorRain: "المطر", colorCloud: "سحابة", colorFog: "ضباب", colorSnow: "ثلج", colorThunder: "رعد", colorText: "النص", colorNavSelected: "التنقل", modeTitle: "الوضع", modeSimple: "بسيط", modeComplex: "متقدم", modeBattery: "توفير البطارية", humidity: "الرطوبة", wind: "الرياح", uv: "UV", pollution: "التلوث", pressure: "الضغط", sunrise: "شروق", sunset: "غروب", sizesTitle: "الأحجام", sizeFlag: "العلم", sizeTemp: "الحرارة", sizeWeather: "الطقس", sizeText: "النص", sizeNav: "التنقل", sizeTopTemp: "الحرارة العليا", forecastTitle: "توقعات 7 أيام", descClear: "صافي", descCloudy: "غائم", descFog: "ضبابي", descRain: "ممطر", descSnow: "ثلج", descThunder: "عاصفة", gearSnow: "المعدات: معطف", gearThunder: "المعدات: بالداخل", simpleForecastTitle: "هذا الأسبوع", fillIcon: "تعبئة الأيقونة", sizeComplexGrid: "الشبكة المتقدمة", sizeForecast: "حجم التوقعات", mapYourLocation: "موقعك", mapYouAreHere: "أنت هنا!", mapCurrentUni: "الجامعة الحالية", mapLocAccessReq: "الوصول إلى الموقع مطلوب", mapDistanceTo: "المسافة إلى", mapTip: "💡 نصيحة: استخدم شريط البحث في الصفحة الرئيسية لاستكشاف جامعات المملكة المتحدة المختلفة. سيتم تحديث الخريطة لإظهار موقع كل حرم جامعي!", mapGettingLoc: "جاري تحديد موقعك...", mapFailLoad: "فشل تحميل الخريطة", mapRetry: "إعادة المحاولة", themeDisabledTitle: "تم تعطيل السمات", themeDisabledDesc: "أنت حاليا في وضع توفير البطارية. لتخصيص السمة الخاصة بك ، يرجى التبديل مرة أخرى إلى الوضع البسيط أو المتقدم في قائمة الإعدادات.", backToSettings: "العودة إلى الإعدادات" },
-    HI: { gearClearDay: "गियर: धूप का चश्मा", gearClearNight: "गियर: जैकेट", gearRain: "गियर: छाता", searchPlaceholder: "कैंपस खोजें...", optionsTitle: "सेटिंग्स", langPrefTitle: "भाषा", primaryLangLabel: "प्राथमिक भाषा", secondaryLangLabel: "द्वितीयक भाषा", studentProfile: "प्रोफ़ाइल", manageId: "आईडी प्रबंधित करें", notifications: "सूचनाएं", weatherAlerts: "अलर्ट", mapTitle: "नक्शा", mapComingSoon: "चरण 2 में आ रहा है!", themeTitle: "थीम", themeDesc: "अनुकूलित करें", themeDynamic: "डायनामिक", themeMidnight: "मिडनाइट", themeSunset: "सनसेट", themeQMUL: "QMUL ब्लू", themeForest: "फॉरेस्ट", themeProtanopia: "लाल-अंधा", themeDeuteranopia: "हरा-अंधा", themeTritanopia: "नीला-अंधा", previewTitle: "पूर्वावलोकन", themeCustom: "कस्टम थीम", bgClear: "साफ़", bgCloudy: "बादल", bgFog: "कोहरा", bgRain: "बारिश", bgSnow: "बर्फ", bgThunder: "आंधी", dayStr: "दिन", nightStr: "रात", styleSun: "सूर्य आइकन", styleMoon: "चंद्रमा आइकन", styleCloudy: "बादल आइकन", styleFog: "कोहरा आइकन", styleRain: "बारिश आइकन", styleSnow: "बर्फ आइकन", styleThunder: "आंधी आइकन", tapToToggle: "बदलने के लिए टैप करें", bgColors: "पृष्ठभूमि", elementColors: "तत्व", colorSun: "सूर्य", colorMoon: "चंद्रमा", colorRain: "बारिश", colorCloud: "बादल", colorFog: "कोहरा", colorSnow: "बर्फ", colorThunder: "आंधी", colorText: "टेक्स्ट", colorNavSelected: "नेव", modeTitle: "मोड", modeSimple: "सरल", modeComplex: "जटिल", modeBattery: "बैटरी सेवर", humidity: "नमी", wind: "हवा", uv: "यूवी", pollution: "प्रदूषण", pressure: "दबाव", sunrise: "सूर्योदय", sunset: "सूर्यास्त", sizesTitle: "आकार", sizeFlag: "ध्वज", sizeTemp: "तापमान", sizeWeather: "मौसम", sizeText: "टेक्स्ट", sizeNav: "नेव", sizeTopTemp: "शीर्ष तापमान", forecastTitle: "7-दिन का पूर्वानुमान", descClear: "साफ", descCloudy: "बादल", descFog: "कोहरा", descRain: "बारिश", descSnow: "बर्फ", descThunder: "आंधी", gearSnow: "गियर: भारी कोट", gearThunder: "गियर: घर के अंदर", simpleForecastTitle: "इस सप्ताह", fillIcon: "आइकन भरें", sizeComplexGrid: "जटिल ग्रिड", sizeForecast: "पूर्वानुमान का आकार", mapYourLocation: "आपका स्थान", mapYouAreHere: "आप यहाँ हैं!", mapCurrentUni: "वर्तमान विश्वविद्यालय", mapLocAccessReq: "स्थान पहुँच आवश्यक है", mapDistanceTo: "दूरी", mapTip: "💡 टिप: विभिन्न यूके विश्वविद्यालयों का पता लगाने के लिए होम पेज पर सर्च बार का उपयोग करें। नक्शा प्रत्येक परिसर का स्थान दिखाने के लिए अपडेट होगा!", mapGettingLoc: "आपका स्थान प्राप्त कर रहा है...", mapFailLoad: "नक्शा लोड करने में विफल", mapRetry: "पुनः प्रयास करें", themeDisabledTitle: "थीम अक्षम हैं", themeDisabledDesc: "आप वर्तमान में बैटरी सेवर मोड में हैं। अपनी थीम को अनुकूलित करने के लिए, कृपया सेटिंग्स मेनू में वापस सरल या जटिल मोड पर स्विच करें।", backToSettings: "सेटिंग्स पर वापस जाएं" },
-    BN: { gearClearDay: "গিয়ার: সানগ্লাস", gearClearNight: "গিয়ার: জ্যাকেট", gearRain: "গিয়ার: ছাতা", searchPlaceholder: "ক্যাম্পাস খুঁজুন...", optionsTitle: "সেটিংস", langPrefTitle: "ভাষা", primaryLangLabel: "প্রাথমিক ভাষা", secondaryLangLabel: "মাধ্যমিক ভাষা", studentProfile: "প্রোফাইল", manageId: "আইডি পরিচালনা", notifications: "বিজ্ঞপ্তি", weatherAlerts: "সতর্কতা", mapTitle: "মানচিত্র", mapComingSoon: "ফেজ 2 এ আসছে!", themeTitle: "থিম", themeDesc: "কাস্টমাইজ করুন", themeDynamic: "ডায়নামিক", themeMidnight: "মিডনাইট", themeSunset: "সানসেট", themeQMUL: "QMUL নীল", themeForest: "ফরেস্ট", themeProtanopia: "লাল-অন্ধ", themeDeuteranopia: "সবুজ-অন্ধ", themeTritanopia: "নীল-অন্ধ", previewTitle: "প্রিভিউ", themeCustom: "কাস্টম থিম", bgClear: "পরিষ্কার", bgCloudy: "মেঘলা", bgFog: "কুয়াশা", bgRain: "বৃষ্টি", bgSnow: "তুষার", bgThunder: "বজ্রপাত", dayStr: "দিন", nightStr: "রাত", styleSun: "সূর্য আইকন", styleMoon: "চাঁদ আইকন", styleCloudy: "মেঘলা আইকন", styleFog: "কুয়াশা আইকন", styleRain: "বৃষ্টির আইকন", styleSnow: "তুষার আইকন", styleThunder: "বজ্রপাত আইকন", tapToToggle: "পরিবর্তন করতে আলতো চাপুন", bgColors: "পটভূমি", elementColors: "উপাদান", colorSun: "সূর্য", colorMoon: "চাঁদ", colorRain: "বৃষ্টি", colorCloud: "মেঘ", colorFog: "কুয়াশা", colorSnow: "তুষার", colorThunder: "বজ্রপাত", colorText: "টেক্সট", colorNavSelected: "নেভ", modeTitle: "মোড", modeSimple: "সাধারণ", modeComplex: "জটিল", modeBattery: "ব্যাটারি সেভার", humidity: "আর্দ্রতা", wind: "বাতাস", uv: "ইউভি", pollution: "দূষণ", pressure: "চাপ", sunrise: "সূর্যোদয়", sunset: "সূর্যাস্ত", sizesTitle: "আকার", sizeFlag: "পতাকা", sizeTemp: "তাপমাত্রা", sizeWeather: "আবহাওয়া", sizeText: "টেক্সট", sizeNav: "নেভিগেশন", sizeTopTemp: "শীর্ষ তাপমাত্রা", forecastTitle: "৭ দিনের পূর্বাভাস", descClear: "পরিষ্কার", descCloudy: "মেঘলা", descFog: "কুয়াশা", descRain: "বৃষ্টি", descSnow: "তুষার", descThunder: "বজ্রপাত", gearSnow: "গিয়ার: ভারী কোট", gearThunder: "গিয়ার: ঘরে থাকুন", simpleForecastTitle: "এই সপ্তাহ", fillIcon: "আইকন পূরণ করুন", sizeComplexGrid: "জটিল গ্রিড", sizeForecast: "পূর্বাভাসের আকার", mapYourLocation: "আপনার অবস্থান", mapYouAreHere: "আপনি এখানে আছেন!", mapCurrentUni: "বর্তমান বিশ্ববিদ্যালয়", mapLocAccessReq: "অবস্থান অ্যাক্সেস প্রয়োজন", mapDistanceTo: "দূরত্ব", mapTip: "💡 টিপ: বিভিন্ন ইউকে বিশ্ববিদ্যালয় অন্বেষণ করতে হোম পৃষ্ঠায় অনুসন্ধান বার ব্যবহার করুন। মানচিত্র প্রতিটি ক্যাম্পাসের অবস্থান দেখানোর জন্য আপডেট হবে!", mapGettingLoc: "আপনার অবস্থান পাওয়া যাচ্ছে...", mapFailLoad: "মানচিত্র লোড করতে ব্যর্থ", mapRetry: "পুনরায় চেষ্টা করুন", themeDisabledTitle: "থিম নিষ্ক্রিয়", themeDisabledDesc: "আপনি বর্তমানে ব্যাটারি সেভার মোডে আছেন। আপনার থিম কাস্টমাইজ করতে, অনুগ্রহ করে সেটিংস মেনুতে ফিরে সাধারণ বা জটিল মোডে যান।", backToSettings: "সেটিংসে ফিরে যান" }
+    EN: { gearClearDay: "Gear: Sunglasses", gearClearNight: "Gear: Jacket", gearRain: "Gear: Umbrella", searchPlaceholder: "Search UK Campus...", optionsTitle: "Settings", langPrefTitle: "Languages", primaryLangLabel: "Primary Language", secondaryLangLabel: "Secondary Language", studentProfile: "Profile", manageId: "Manage ID", notifications: "Notifications", weatherAlerts: "Alerts", mapTitle: "Campus Map", mapComingSoon: "Map coming in Phase 2!", themeTitle: "Theme", themeDesc: "Customize appearance", themeDynamic: "Dynamic (Weather)", themeMidnight: "Midnight Dark", themeSunset: "Sunset Glow", themeQMUL: "QMUL Blue", themeForest: "Forest Green", themeProtanopia: "Protanopia (Red-Blind)", themeDeuteranopia: "Deuteranopia (Green-Blind)", themeTritanopia: "Tritanopia (Blue-Blind)", previewTitle: "Live Preview", themeCustom: "Custom Theme", bgClear: "Clear", bgCloudy: "Cloudy", bgFog: "Fog", bgRain: "Rain", bgSnow: "Snow", bgThunder: "Thunder", dayStr: "Day", nightStr: "Night", styleSun: "Sun Icon", styleMoon: "Moon Icon", styleCloudy: "Cloudy Icon", styleFog: "Fog Icon", styleRain: "Rain Icon", styleSnow: "Snow Icon", styleThunder: "Thunder Icon", tapToToggle: "Tap to cycle weather", bgColors: "Backgrounds", elementColors: "Elements", colorSun: "Sun", colorMoon: "Moon", colorRain: "Rain", colorCloud: "Cloud", colorFog: "Fog", colorSnow: "Snow", colorThunder: "Thunder", colorText: "Text", colorNavSelected: "Nav", modeTitle: "App Mode", modeSimple: "Simple Mode", modeComplex: "Complex Mode", modeBattery: "Battery Saver", humidity: "Humidity", wind: "Wind", uv: "UV Index", pollution: "Pollution", pressure: "Pressure", sunrise: "Sunrise", sunset: "Sunset", sizesTitle: "Sizes", sizeFlag: "Flag", sizeTemp: "Temp", sizeWeather: "Weather", sizeText: "Text", sizeNav: "Nav", sizeTopTemp: "Top Temp", forecastTitle: "7-Day Forecast", descClear: "Clear", descCloudy: "Cloudy", descFog: "Foggy", descRain: "Rain", descSnow: "Snow", descThunder: "Thunder", gearSnow: "Gear: Heavy Coat", gearThunder: "Gear: Indoors", simpleForecastTitle: "This Week", fillIcon: "Fill Icon", sizeComplexGrid: "Complex Grid", sizeForecast: "Forecast List", mapYourLocation: "Your Location", mapYouAreHere: "You are here!", mapCurrentUni: "Current University", mapLocAccessReq: "Location access required", mapDistanceTo: "Distance to", mapTip: "💡 Tip: Use the search bar on the home page to explore different UK universities. The map will update to show each campus location!", mapGettingLoc: "Getting your location...", mapFailLoad: "Failed to load map", mapRetry: "Retry", themeDisabledTitle: "Themes Disabled", themeDisabledDesc: "You are currently in Battery Saver mode. To customize your theme, please switch back to Simple or Complex Mode in the Settings menu.", backToSettings: "Go back to Settings", themeAchromatopsia: "Achromatopsia (B&W)", themeColorful: "Colorful", categoryDynamic: "Dynamic Themes", categoryMonotone: "Monotone Themes", categoryAccessibility: "Accessibility Themes", categoryCustom: "Custom Theme" },
+    TH: { gearClearDay: "อุปกรณ์: แว่นกันแดด", gearClearNight: "อุปกรณ์: แจ็คเก็ต", gearRain: "อุปกรณ์: ร่ม", searchPlaceholder: "ค้นหาวิทยาเขต...", optionsTitle: "การตั้งค่า", langPrefTitle: "ภาษา", primaryLangLabel: "ภาษาหลัก", secondaryLangLabel: "ภาษารอง", studentProfile: "โปรไฟล์", manageId: "จัดการ ID", notifications: "การแจ้งเตือน", weatherAlerts: "เตือนสภาพอากาศ", mapTitle: "แผนที่", mapComingSoon: "มาในเฟส 2!", themeTitle: "ธีม", themeDesc: "ปรับแต่งแอป", themeDynamic: "ไดนามิก (ตามสภาพอากาศ)", themeMidnight: "มิดไนท์ดาร์ก", themeSunset: "แสงอาทิตย์ตก", themeQMUL: "สีฟ้า QMUL", themeForest: "สีเขียวป่า", themeProtanopia: "ตาบอดสีแดง (Protanopia)", themeDeuteranopia: "ตาบอดสีเขียว (Deuteranopia)", themeTritanopia: "ตาบอดสีน้ำเงิน (Tritanopia)", previewTitle: "แสดงตัวอย่างสด", themeCustom: "ธีมกำหนดเอง", bgClear: "แจ่มใส", bgCloudy: "มีเมฆ", bgFog: "มีหมอก", bgRain: "ฝนตก", bgSnow: "หิมะตก", bgThunder: "พายุฝนฟ้าคะนอง", dayStr: "กลางวัน", nightStr: "กลางคืน", styleSun: "ไอคอนพระอาทิตย์", styleMoon: "ไอคอนพระจันทร์", styleCloudy: "ไอคอนเมฆ", styleFog: "ไอคอนหมอก", styleRain: "ไอคอนฝน", styleSnow: "ไอคอนหิมะ", styleThunder: "ไอคอนพายุ", tapToToggle: "แตะเพื่อสลับ", bgColors: "พื้นหลัง", elementColors: "องค์ประกอบ", colorSun: "พระอาทิตย์", colorMoon: "พระจันทร์", colorRain: "ฝน", colorCloud: "เมฆ", colorFog: "หมอก", colorSnow: "หิมะ", colorThunder: "พายุ", colorText: "ข้อความ", colorNavSelected: "เมนู", modeTitle: "โหมด", modeSimple: "โหมดปกติ", modeComplex: "โหมดรายละเอียด", modeBattery: "ประหยัดแบต", humidity: "ความชื้น", wind: "ลม", uv: "ดัชนี UV", pollution: "มลพิษ", pressure: "ความกดอากาศ", sunrise: "พระอาทิตย์ขึ้น", sunset: "พระอาทิตย์ตก", sizesTitle: "ขนาด", sizeFlag: "ธง", sizeTemp: "อุณหภูมิ", sizeWeather: "ไอคอน", sizeText: "ข้อความ", sizeNav: "แถบนำทาง", sizeTopTemp: "อุณหภูมิด้านบน", forecastTitle: "พยากรณ์ 7 วัน", descClear: "แจ่มใส", descCloudy: "มีเมฆ", descFog: "มีหมอก", descRain: "ฝนตก", descSnow: "หิมะตก", descThunder: "พายุ", gearSnow: "อุปกรณ์: เสื้อกันหนาว", gearThunder: "อุปกรณ์: อยู่ในร่ม", simpleForecastTitle: "สัปดาห์นี้", fillIcon: "เติมสีไอคอน", sizeComplexGrid: "ขนาดกริด", sizeForecast: "ขนาดพยากรณ์", mapYourLocation: "ตำแหน่งของคุณ", mapYouAreHere: "คุณอยู่ที่นี่!", mapCurrentUni: "มหาวิทยาลัยปัจจุบัน", mapLocAccessReq: "ต้องเข้าถึงตำแหน่ง", mapDistanceTo: "ระยะทางถึง", mapTip: "💡 เคล็ดลับ: ใช้แถบค้นหาบนหน้าแรกเพื่อสำรวจมหาวิทยาลัยต่างๆ ในสหราชอาณาจักร แผนที่จะอัปเดตเพื่อแสดงตำแหน่งของแต่ละวิทยาเขต!", mapGettingLoc: "กำลังหาตำแหน่งของคุณ...", mapFailLoad: "โหลดแผนที่ล้มเหลว", mapRetry: "ลองอีกครั้ง", themeDisabledTitle: "ปิดใช้งานธีม", themeDisabledDesc: "คุณกำลังอยู่ในโหมดประหยัดแบตเตอรี่ หากต้องการปรับแต่งธีม โปรดสลับกลับเป็นโหมดปกติหรือโหมดรายละเอียดในการตั้งค่า", backToSettings: "กลับไปที่การตั้งค่า", themeAchromatopsia: "ตาบอดสีทั้งหมด (ขาวดำ)", themeColorful: "สีสันสดใส", categoryDynamic: "ธีมไดนามิก", categoryMonotone: "ธีมสีเดียว (Monotone)", categoryAccessibility: "ธีมเพื่อการเข้าถึง", categoryCustom: "ธีมกำหนดเอง" },
+    ZH: { gearClearDay: "装备：太阳镜", gearClearNight: "装备：外套", gearRain: "装备：雨伞", searchPlaceholder: "搜索校园...", optionsTitle: "设置", langPrefTitle: "语言偏好", primaryLangLabel: "主要语言", secondaryLangLabel: "次要语言", studentProfile: "档案", manageId: "管理 ID", notifications: "通知", weatherAlerts: "天气警报", mapTitle: "校园地图", mapComingSoon: "第二阶段推出！", themeTitle: "主题", themeDesc: "自定义外观", themeDynamic: "动态 (天气)", themeMidnight: "午夜深黑", themeSunset: "日落晚霞", themeQMUL: "QMUL 蓝", themeForest: "森林绿", themeProtanopia: "红色盲 (Protanopia)", themeDeuteranopia: "绿色盲 (Deuteranopia)", themeTritanopia: "蓝色盲 (Tritanopia)", previewTitle: "实时预览", themeCustom: "自定义主题", bgClear: "晴朗", bgCloudy: "多云", bgFog: "雾", bgRain: "雨", bgSnow: "雪", bgThunder: "雷", dayStr: "白天", nightStr: "夜晚", styleSun: "太阳图标", styleMoon: "月亮图标", styleCloudy: "多云图标", styleFog: "雾图标", styleRain: "雨图标", styleSnow: "雪图标", styleThunder: "雷暴图标", tapToToggle: "点击切换", bgColors: "背景颜色", elementColors: "元素颜色", colorSun: "太阳", colorMoon: "月亮", colorRain: "雨水", colorCloud: "云", colorFog: "雾", colorSnow: "雪", colorThunder: "雷", colorText: "文本", colorNavSelected: "导航", modeTitle: "模式", modeSimple: "简单模式", modeComplex: "复杂模式", modeBattery: "省电模式", humidity: "湿度", wind: "风速", uv: "紫外线", pollution: "污染", pressure: "气压", sunrise: "日出", sunset: "日落", sizesTitle: "大小", sizeFlag: "国旗", sizeTemp: "温度", sizeWeather: "天气图标", sizeText: "文本", sizeNav: "导航栏", sizeTopTemp: "顶部温度", forecastTitle: "7天预报", descClear: "晴朗", descCloudy: "多云", descFog: "有雾", descRain: "下雨", descSnow: "下雪", descThunder: "雷暴", gearSnow: "装备：厚外套", gearThunder: "装备：室内", simpleForecastTitle: "本周", fillIcon: "填充图标", sizeComplexGrid: "复杂网格", sizeForecast: "预报大小", mapYourLocation: "您的位置", mapYouAreHere: "你在这里！", mapCurrentUni: "当前大学", mapLocAccessReq: "需要位置权限", mapDistanceTo: "距离", mapTip: "💡 提示：使用主页上的搜索栏探索不同的英国大学。地图将更新以显示每个校园的位置！", mapGettingLoc: "正在获取您的位置...", mapFailLoad: "地图加载失败", mapRetry: "重试", themeDisabledTitle: "主题已禁用", themeDisabledDesc: "您当前处于省电模式。要自定义主题，请在设置菜单中切换回简单或复杂模式。", backToSettings: "返回设置", themeAchromatopsia: "全色盲 (黑白)", themeColorful: "色彩缤纷", categoryDynamic: "动态主题", categoryMonotone: "单色主题", categoryAccessibility: "无障碍主题", categoryCustom: "自定义主题" },
+    FA: { gearClearDay: "تجهیزات: عینک آفتابی", gearClearNight: "تجهیزات: ژاکت", gearRain: "تجهیزات: چتر", searchPlaceholder: "جستجوی پردیس...", optionsTitle: "تنظیمات", langPrefTitle: "زبان‌ها", primaryLangLabel: "زبان اصلی", secondaryLangLabel: "زبان دوم", studentProfile: "پروفایل", manageId: "مدیریت شناسه", notifications: "اعلان‌ها", weatherAlerts: "هشدارها", mapTitle: "نقشه", mapComingSoon: "فاز 2 اضافه می‌شود!", themeTitle: "تم", themeDesc: "سفارشی سازی", themeDynamic: "پویا (آب و هوا)", themeMidnight: "تاریکی نیمه شب", themeSunset: "درخشش غروب", themeQMUL: "آبی QMUL", themeForest: "سبز جنگلی", themeProtanopia: "کوررنگی قرمز (Protanopia)", themeDeuteranopia: "کوررنگی سبز (Deuteranopia)", themeTritanopia: "کوررنگی آبی (Tritanopia)", previewTitle: "پیش‌نمایش زنده", themeCustom: "تم سفارشی", bgClear: "صاف", bgCloudy: "ابری", bgFog: "مه", bgRain: "باران", bgSnow: "برف", bgThunder: "رعد و برق", dayStr: "روز", nightStr: "شب", styleSun: "نماد خورشید", styleMoon: "نماد ماه", styleCloudy: "نماد ابری", styleFog: "نماد مه", styleRain: "نماد باران", styleSnow: "نماد برف", styleThunder: "نماد رعد و برق", tapToToggle: "برای تغییر ضربه بزنید", bgColors: "پس‌زمینه", elementColors: "عناصر", colorSun: "خورشید", colorMoon: "ماه", colorRain: "باران", colorCloud: "ابر", colorFog: "مه", colorSnow: "برف", colorThunder: "رعد و برق", colorText: "متن", colorNavSelected: "ناوبری", modeTitle: "حالت", modeSimple: "ساده", modeComplex: "پیشرفته", modeBattery: "ذخیره باتری", humidity: "رطوبت", wind: "باد", uv: "UV", pollution: "آلودگی", pressure: "فشار", sunrise: "طلوع", sunset: "غروب", sizesTitle: "اندازه‌ها", sizeFlag: "پرچم", sizeTemp: "دما", sizeWeather: "نماد", sizeText: "متن", sizeNav: "ناوبری", sizeTopTemp: "دمای بالا", forecastTitle: "پیش بینی 7 روزه", descClear: "صاف", descCloudy: "ابری", descFog: "مه آلود", descRain: "باران", descSnow: "برف", descThunder: "رعد و برق", gearSnow: "تجهیزات: پالتو", gearThunder: "تجهیزات: در خانه", simpleForecastTitle: "این هفته", fillIcon: "پر کردن نماد", sizeComplexGrid: "شبکه پیشرفته", sizeForecast: "اندازه پیش‌بینی", mapYourLocation: "مکان شما", mapYouAreHere: "شما اینجا هستید!", mapCurrentUni: "دانشگاه فعلی", mapLocAccessReq: "دسترسی به مکان لازم است", mapDistanceTo: "فاصله تا", mapTip: "💡 نکته: از نوار جستجو در صفحه اصلی برای کاوش در دانشگاه‌های مختلف انگلستان استفاده کنید. نقشه برای نشان دادن مکان هر پردیس به روز می شود!", mapGettingLoc: "در حال یافتن مکان شما...", mapFailLoad: "بارگیری نقشه ناموفق بود", mapRetry: "تلاش مجدد", themeDisabledTitle: "تم‌ها غیرفعال شدند", themeDisabledDesc: "شما در حال حاضر در حالت ذخیره باتری هستید. برای سفارشی کردن تم خود، لطفاً در منوی تنظیمات به حالت ساده یا پیشرفته برگردید.", backToSettings: "بازگشت به تنظیمات", themeAchromatopsia: "کوررنگی کامل (سیاه و سفید)", themeColorful: "رنگارنگ", categoryDynamic: "تم‌های پویا", categoryMonotone: "تم‌های یکنواخت", categoryAccessibility: "تم‌های دسترسی‌پذیری", categoryCustom: "تم سفارشی" },
+    AR: { gearClearDay: "المعدات: نظارات شمسية", gearClearNight: "المعدات: سترة", gearRain: "المعدات: مظلة", searchPlaceholder: "ابحث عن حرم جامعي...", optionsTitle: "الإعدادات", langPrefTitle: "اللغات", primaryLangLabel: "اللغة الأساسية", secondaryLangLabel: "اللغة الثانوية", studentProfile: "الملف الشخصي", manageId: "إدارة المعرف", notifications: "الإشعارات", weatherAlerts: "تنبيهات", mapTitle: "خريطة", mapComingSoon: "قادمة في المرحلة 2!", themeTitle: "السمة", themeDesc: "تخصيص المظهر", themeDynamic: "ديناميكي (الطقس)", themeMidnight: "الظلام في منتصف الليل", themeSunset: "توهج الغروب", themeQMUL: "أزرق QMUL", themeForest: "أخضر الغابة", themeProtanopia: "عمى الألوان الأحمر (Protanopia)", themeDeuteranopia: "عمى الألوان الأخضر (Deuteranopia)", themeTritanopia: "عمى الألوان الأزرق (Tritanopia)", previewTitle: "معاينة حية", themeCustom: "سمة مخصصة", bgClear: "صافي", bgCloudy: "غائم", bgFog: "ضباب", bgRain: "مطر", bgSnow: "ثلج", bgThunder: "رعد", dayStr: "نهار", nightStr: "ليل", styleSun: "أيقونة الشمس", styleMoon: "أيقونة القمر", styleCloudy: "أيقونة غائم", styleFog: "أيقونة ضباب", styleRain: "أيقونة المطر", styleSnow: "أيقونة ثلج", styleThunder: "أيقونة رعد", tapToToggle: "انقر للتبديل", bgColors: "الخلفيات", elementColors: "العناصر", colorSun: "الشمس", colorMoon: "القمر", colorRain: "المطر", colorCloud: "سحابة", colorFog: "ضباب", colorSnow: "ثلج", colorThunder: "رعد", colorText: "النص", colorNavSelected: "التنقل", modeTitle: "الوضع", modeSimple: "بسيط", modeComplex: "متقدم", modeBattery: "توفير البطارية", humidity: "الرطوبة", wind: "الرياح", uv: "UV", pollution: "التلوث", pressure: "الضغط", sunrise: "شروق", sunset: "غروب", sizesTitle: "الأحجام", sizeFlag: "العلم", sizeTemp: "الحرارة", sizeWeather: "الطقس", sizeText: "النص", sizeNav: "التنقل", sizeTopTemp: "الحرارة العليا", forecastTitle: "توقعات 7 أيام", descClear: "صافي", descCloudy: "غائم", descFog: "ضبابي", descRain: "ممطر", descSnow: "ثلج", descThunder: "عاصفة", gearSnow: "المعدات: معطف", gearThunder: "المعدات: بالداخل", simpleForecastTitle: "هذا الأسبوع", fillIcon: "تعبئة الأيقونة", sizeComplexGrid: "الشبكة المتقدمة", sizeForecast: "حجم التوقعات", mapYourLocation: "موقعك", mapYouAreHere: "أنت هنا!", mapCurrentUni: "الجامعة الحالية", mapLocAccessReq: "الوصول إلى الموقع مطلوب", mapDistanceTo: "المسافة إلى", mapTip: "💡 نصيحة: استخدم شريط البحث في الصفحة الرئيسية لاستكشاف جامعات المملكة المتحدة المختلفة. سيتم تحديث الخريطة لإظهار موقع كل حرم جامعي!", mapGettingLoc: "جاري تحديد موقعك...", mapFailLoad: "فشل تحميل الخريطة", mapRetry: "إعادة المحاولة", themeDisabledTitle: "تم تعطيل السمات", themeDisabledDesc: "أنت حاليا في وضع توفير البطارية. لتخصيص السمة الخاصة بك ، يرجى التبديل مرة أخرى إلى الوضع البسيط أو المتقدم في قائمة الإعدادات.", backToSettings: "العودة إلى الإعدادات", themeAchromatopsia: "عمى الألوان الكلي (أبيض وأسود)", themeColorful: "ملون", categoryDynamic: "سمات ديناميكية", categoryMonotone: "سمات أحادية اللون", categoryAccessibility: "سمات إمكانية الوصول", categoryCustom: "سمة مخصصة" },
+    HI: { gearClearDay: "गियर: धूप का चश्मा", gearClearNight: "गियर: जैकेट", gearRain: "गियर: छाता", searchPlaceholder: "कैंपस खोजें...", optionsTitle: "सेटिंग्स", langPrefTitle: "भाषा", primaryLangLabel: "प्राथमिक भाषा", secondaryLangLabel: "द्वितीयक भाषा", studentProfile: "प्रोफ़ाइल", manageId: "आईडी प्रबंधित करें", notifications: "सूचनाएं", weatherAlerts: "अलर्ट", mapTitle: "नक्शा", mapComingSoon: "चरण 2 में आ रहा है!", themeTitle: "थीम", themeDesc: "अनुकूलित करें", themeDynamic: "डायनामिक (मौसम)", themeMidnight: "मिडनाइट डार्क", themeSunset: "सनसेट ग्लो", themeQMUL: "QMUL ब्लू", themeForest: "फॉरेस्ट ग्रीन", themeProtanopia: "प्रोटानोपिया (लाल-अंधा)", themeDeuteranopia: "ड्यूटेरानोपिया (हरा-अंधा)", themeTritanopia: "ट्रिटानोपिया (नीला-अंधा)", previewTitle: "लाइव पूर्वावलोकन", themeCustom: "कस्टम थीम", bgClear: "साफ़", bgCloudy: "बादल", bgFog: "कोहरा", bgRain: "बारिश", bgSnow: "बर्फ", bgThunder: "आंधी", dayStr: "दिन", nightStr: "रात", styleSun: "सूर्य आइकन", styleMoon: "चंद्रमा आइकन", styleCloudy: "बादल आइकन", styleFog: "कोहरा आइकन", styleRain: "बारिश आइकन", styleSnow: "बर्फ आइकन", styleThunder: "आंधी आइकन", tapToToggle: "बदलने के लिए टैप करें", bgColors: "पृष्ठभूमि", elementColors: "तत्व", colorSun: "सूर्य", colorMoon: "चंद्रमा", colorRain: "बारिश", colorCloud: "बादल", colorFog: "कोहरा", colorSnow: "बर्फ", colorThunder: "आंधी", colorText: "टेक्स्ट", colorNavSelected: "नेव", modeTitle: "मोड", modeSimple: "सरल", modeComplex: "जटिल", modeBattery: "बैटरी सेवर", humidity: "नमी", wind: "हवा", uv: "यूवी", pollution: "प्रदूषण", pressure: "दबाव", sunrise: "सूर्योदय", sunset: "सूर्यास्त", sizesTitle: "आकार", sizeFlag: "ध्वज", sizeTemp: "तापमान", sizeWeather: "मौसम", sizeText: "टेक्स्ट", sizeNav: "नेव", sizeTopTemp: "शीर्ष तापमान", forecastTitle: "7-दिन का पूर्वानुमान", descClear: "साफ", descCloudy: "बादल", descFog: "कोहरा", descRain: "बारिश", descSnow: "बर्फ", descThunder: "आंधी", gearSnow: "गियर: भारी कोट", gearThunder: "गियर: घर के अंदर", simpleForecastTitle: "इस सप्ताह", fillIcon: "आइकन भरें", sizeComplexGrid: "जटिल ग्रिड", sizeForecast: "पूर्वानुमान का आकार", mapYourLocation: "आपका स्थान", mapYouAreHere: "आप यहाँ हैं!", mapCurrentUni: "वर्तमान विश्वविद्यालय", mapLocAccessReq: "स्थान पहुँच आवश्यक है", mapDistanceTo: "दूरी", mapTip: "💡 टिप: विभिन्न यूके विश्वविद्यालयों का पता लगाने के लिए होम पेज पर सर्च बार का उपयोग करें। नक्शा प्रत्येक परिसर का स्थान दिखाने के लिए अपडेट होगा!", mapGettingLoc: "आपका स्थान प्राप्त कर रहा है...", mapFailLoad: "नक्शा लोड करने में विफल", mapRetry: "पुनः प्रयास करें", themeDisabledTitle: "थीम अक्षम हैं", themeDisabledDesc: "आप वर्तमान में बैटरी सेवर मोड में हैं। अपनी थीम को अनुकूलित करने के लिए, कृपया सेटिंग्स मेनू में वापस सरल या जटिल मोड पर स्विच करें।", backToSettings: "सेटिंग्स पर वापस जाएं", themeAchromatopsia: "अक्रोमेटोप्सिया (ब्लैक एंड व्हाइट)", themeColorful: "रंगीन", categoryDynamic: "डायनामिक थीम", categoryMonotone: "मोनोटोन थीम", categoryAccessibility: "एक्सेसिबिलिटी थीम", categoryCustom: "कस्टम थीम" },
+    BN: { gearClearDay: "গিয়ার: সানগ্লাস", gearClearNight: "গিয়ার: জ্যাকেট", gearRain: "গিয়ার: ছাতা", searchPlaceholder: "ক্যাম্পাস খুঁজুন...", optionsTitle: "সেটিংস", langPrefTitle: "ভাষা", primaryLangLabel: "প্রাথমিক ভাষা", secondaryLangLabel: "মাধ্যমিক ভাষা", studentProfile: "প্রোফাইল", manageId: "আইডি পরিচালনা", notifications: "বিজ্ঞপ্তি", weatherAlerts: "সতর্কতা", mapTitle: "মানচিত্র", mapComingSoon: "ফেজ 2 এ আসছে!", themeTitle: "থিম", themeDesc: "কাস্টমাইজ করুন", themeDynamic: "ডায়নামিক (আবহাওয়া)", themeMidnight: "মিডনাইট ডার্ক", themeSunset: "সানসেট গ্লো", themeQMUL: "QMUL নীল", themeForest: "ফরেস্ট গ্রিন", themeProtanopia: "প্রোটানোপিয়া (লাল-অন্ধ)", themeDeuteranopia: "ডিউটেরানোপিয়া (সবুজ-অন্ধ)", themeTritanopia: "ট্রিটানোপিয়া (নীল-অন্ধ)", previewTitle: "লাইভ প্রিভিউ", themeCustom: "কাস্টম থিম", bgClear: "পরিষ্কার", bgCloudy: "মেঘলা", bgFog: "কুয়াশা", bgRain: "বৃষ্টি", bgSnow: "তুষার", bgThunder: "বজ্রপাত", dayStr: "দিন", nightStr: "রাত", styleSun: "সূর্য আইকন", styleMoon: "চাঁদ আইকন", styleCloudy: "মেঘলা আইকন", styleFog: "কুয়াশা আইকন", styleRain: "বৃষ্টির আইকন", styleSnow: "তুষার আইকন", styleThunder: "বজ্রপাত আইকন", tapToToggle: "পরিবর্তন করতে আলতো চাপুন", bgColors: "পটভূমি", elementColors: "উপাদান", colorSun: "সূর্য", colorMoon: "চাঁদ", colorRain: "বৃষ্টি", colorCloud: "মেঘ", colorFog: "কুয়াশা", colorSnow: "তুষার", colorThunder: "বজ্রপাত", colorText: "টেক্সট", colorNavSelected: "নেভ", modeTitle: "মোড", modeSimple: "সাধারণ", modeComplex: "জটিল", modeBattery: "ব্যাটারি সেভার", humidity: "আর্দ্রতা", wind: "বাতাস", uv: "ইউভি", pollution: "দূষণ", pressure: "চাপ", sunrise: "সূর্যোদয়", sunset: "সূর্যাস্ত", sizesTitle: "আকার", sizeFlag: "পতাকা", sizeTemp: "তাপমাত্রা", sizeWeather: "আবহাওয়া", sizeText: "টেক্সট", sizeNav: "নেভিগেশন", sizeTopTemp: "শীর্ষ তাপমাত্রা", forecastTitle: "৭ দিনের পূর্বাভাস", descClear: "পরিষ্কার", descCloudy: "মেঘলা", descFog: "কুয়াশা", descRain: "বৃষ্টি", descSnow: "তুষার", descThunder: "বজ্রপাত", gearSnow: "গিয়ার: ভারী কোট", gearThunder: "গিয়ার: ঘরে থাকুন", simpleForecastTitle: "এই সপ্তাহ", fillIcon: "আইকন পূরণ করুন", sizeComplexGrid: "জটিল গ্রিড", sizeForecast: "পূর্বাভাসের আকার", mapYourLocation: "আপনার অবস্থান", mapYouAreHere: "আপনি এখানে আছেন!", mapCurrentUni: "বর্তমান বিশ্ববিদ্যালয়", mapLocAccessReq: "অবস্থান অ্যাক্সেস প্রয়োজন", mapDistanceTo: "দূরত্ব", mapTip: "💡 টিপ: বিভিন্ন ইউকে বিশ্ববিদ্যালয় অন্বেষণ করতে হোম পৃষ্ঠায় অনুসন্ধান বার ব্যবহার করুন। মানচিত্র প্রতিটি ক্যাম্পাসের অবস্থান দেখানোর জন্য আপডেট হবে!", mapGettingLoc: "আপনার অবস্থান পাওয়া যাচ্ছে...", mapFailLoad: "মানচিত্র লোড করতে ব্যর্থ", mapRetry: "পুনরায় চেষ্টা করুন", themeDisabledTitle: "থিম নিষ্ক্রিয়", themeDisabledDesc: "আপনি বর্তমানে ব্যাটারি সেভার মোডে আছেন। আপনার থিম কাস্টমাইজ করতে, অনুগ্রহ করে সেটিংস মেনুতে ফিরে সাধারণ বা জটিল মোডে যান।", backToSettings: "সেটিংসে ফিরে যান", themeAchromatopsia: "অ্যাক্রোমাটোপসিয়া (সাদাকালো)", themeColorful: "রঙিন", categoryDynamic: "ডায়নামিক থিম", categoryMonotone: "মনোটোন থিম", categoryAccessibility: "অ্যাক্সেসিবিলিটি থিম", categoryCustom: "কাস্টম থিম" }
   };
 
   const languages = [
@@ -543,20 +552,13 @@ export default function App() {
   let currentNavActive = '#FBBF24'; 
   let currentNavInactive = '#FFFFFF';
 
-  const isColorBlindMode = ['protanopia', 'deuteranopia', 'tritanopia'].includes(appTheme);
+  const isColorBlindMode = ['protanopia', 'deuteranopia', 'tritanopia', 'achromatopsia'].includes(appTheme);
   const showTextFlag = isBatterySave || isColorBlindMode;
 
   if (isBatterySave) {
-    currentTextColor = '#22C55E'; 
-    currentSunColor = '#22C55E'; 
-    currentMoonColor = '#22C55E';
-    currentRainColor = '#22C55E'; 
-    currentCloudColor = '#22C55E'; 
-    currentFogColor = '#22C55E';
-    currentSnowColor = '#22C55E'; 
-    currentThunderColor = '#22C55E'; 
-    currentNavActive = '#4ADE80'; 
-    currentNavInactive = '#166534';
+    currentTextColor = '#22C55E'; currentSunColor = '#22C55E'; currentMoonColor = '#22C55E';
+    currentRainColor = '#22C55E'; currentCloudColor = '#22C55E'; currentFogColor = '#22C55E';
+    currentSnowColor = '#22C55E'; currentThunderColor = '#22C55E'; currentNavActive = '#4ADE80'; currentNavInactive = '#166534';
   } else if (appTheme === 'custom') {
     currentTextColor = customColors.text; currentSunColor = customColors.sun; currentMoonColor = customColors.moon;
     currentRainColor = customColors.rain; currentCloudColor = customColors.cloud; currentFogColor = customColors.fog;
@@ -569,6 +571,10 @@ export default function App() {
     currentSunColor = '#FF5252'; currentMoonColor = '#E2E8F0'; currentRainColor = '#00BFA5'; 
     currentCloudColor = '#E2E8F0'; currentFogColor = '#E2E8F0'; currentSnowColor = '#E2E8F0'; currentThunderColor = '#FF5252';
     currentNavActive = '#00BFA5'; 
+  } else if (appTheme === 'achromatopsia') {
+    currentSunColor = '#FFFFFF'; currentMoonColor = '#D4D4D8'; currentRainColor = '#A1A1AA'; 
+    currentCloudColor = '#A1A1AA'; currentFogColor = '#71717A'; currentSnowColor = '#F4F4F5'; currentThunderColor = '#FFFFFF';
+    currentNavActive = '#FFFFFF'; currentNavInactive = '#71717A'; 
   }
 
   const tc = { color: currentTextColor };
@@ -590,7 +596,6 @@ export default function App() {
   const textMult = appTheme === 'custom' && !isBatterySave ? customSizes.text : 1;
   const navMult = appTheme === 'custom' && !isBatterySave ? customSizes.nav : 1;
   const topTempMult = appTheme === 'custom' && !isBatterySave ? customSizes.topTemp : 1;
-  // NEW: Multipliers specifically mapped to the Complex Mode rendering engine
   const complexGridMult = appTheme === 'custom' && !isBatterySave ? customSizes.complexGrid : 1;
   const complexForecastMult = appTheme === 'custom' && !isBatterySave ? customSizes.complexForecast : 1;
 
@@ -793,7 +798,6 @@ export default function App() {
                 <div className={`w-full lg:w-[480px] lg:mt-24 mt-6 animate-in slide-in-from-bottom-8 ${isRTL ? 'lg:slide-in-from-left-8' : 'lg:slide-in-from-right-8'} duration-700 flex-shrink-0 z-10`}>
                   <div className="w-16 h-1 bg-white/20 rounded-full mx-auto mb-6 lg:hidden"></div>
                   
-                  {/* UPDATED: Applied Complex Grid Scale Customization */}
                   <div className="mb-6 transition-transform" style={{ transform: `scale(${complexGridMult})`, transformOrigin: isRTL ? 'top right' : 'top left' }}>
                     <div className="grid grid-cols-2 gap-3 md:gap-4">
                       <div className={`p-4 rounded-2xl flex flex-col gap-2 ${isBatterySave ? 'bg-black border border-green-500/30' : 'bg-white/10 backdrop-blur-md shadow-lg border border-white/5'}`}>
@@ -1013,63 +1017,118 @@ export default function App() {
                   <p className="text-sm md:text-base" style={{ color: tc.color, opacity: 0.8 }}>{t.previewTitle}</p>
                   <p className="text-xs md:text-sm italic" style={{ color: tc.color, opacity: 0.5 }}>{t.tapToToggle}</p>
                 </div>
-                <div onClick={cycleWeather} className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5 flex items-center justify-between shadow-lg cursor-pointer hover:bg-white/20 hover:scale-[1.02] active:scale-95 transition-all">
-                  
-                  <div className={`flex flex-col ${isRTL ? 'items-end' : 'items-start'}`}>
-                    <h3 
-                      className="text-4xl md:text-5xl font-bold mb-1 transition-transform" 
-                      style={{ ...tc, transform: `scale(${tempMult})`, transformOrigin: isRTL ? 'right center' : 'left center' }}
-                    >
-                      {isLoading ? "--°" : getDisplayTemperature()}
-                    </h3>
-                    <div 
-                      className="flex items-center gap-1.5 text-sm md:text-base mt-2 transition-transform" 
-                      style={{ color: tc.color, opacity: 0.9, transform: `scale(${textMult})`, transformOrigin: isRTL ? 'right top' : 'left top' }}
-                    >
-                      <Home size={16} /> {selectedLocation.city}
+                
+                {/* UPDATED: Fully comprehensive live preview for both Simple and Complex states */}
+                <div onClick={cycleWeather} className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5 flex flex-col shadow-lg cursor-pointer hover:bg-white/20 hover:scale-[1.02] active:scale-95 transition-all w-full">
+                  <div className="flex items-center justify-between w-full">
+                    <div className={`flex flex-col ${isRTL ? 'items-end' : 'items-start'}`}>
+                      <h3 className="text-4xl md:text-5xl font-bold mb-1 transition-transform" style={{ ...tc, transform: `scale(${tempMult})`, transformOrigin: isRTL ? 'right center' : 'left center' }}>
+                        {isLoading ? "--°" : getDisplayTemperature()}
+                      </h3>
+                      <div className="flex flex-col gap-1 mt-2 transition-transform" style={{ color: tc.color, transform: `scale(${textMult})`, transformOrigin: isRTL ? 'right top' : 'left top' }}>
+                        <div className="flex items-center gap-1.5 text-sm md:text-base opacity-90"><Home size={16} /> {selectedLocation.city}</div>
+                        <div className="flex items-center gap-1.5 text-xs md:text-sm opacity-80"><currentDetails.gearIcon size={14} /> {currentDetails.gear}</div>
+                        <div className="text-xs md:text-sm opacity-80">{currentTime.toLocaleDateString(activeLang.toLowerCase(), { weekday: 'short', day: 'numeric', month: 'short' })}</div>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="bg-white/10 p-4 rounded-full flex items-center justify-center">
-                    <div className="relative flex items-center justify-center w-16 h-16">
-                        <currentDetails.baseIcon size={48 * weatherMult} className="drop-shadow-md" style={currentDetails.baseStyle} />
-                        {currentDetails.overlayIcon && (
-                          <div className={`absolute -bottom-1 ${isRTL ? '-left-1' : '-right-1'} bg-black/30 backdrop-blur-md rounded-full p-1 border border-white/10`}>
-                            <currentDetails.overlayIcon size={20 * weatherMult} style={currentDetails.overlayStyle} />
-                          </div>
-                        )}
+                    <div className="bg-white/10 p-4 rounded-full flex items-center justify-center">
+                      <div className="relative flex items-center justify-center w-16 h-16">
+                          <currentDetails.baseIcon size={48 * weatherMult} className="drop-shadow-md" style={currentDetails.baseStyle} />
+                          {currentDetails.overlayIcon && (
+                            <div className={`absolute -bottom-1 ${isRTL ? '-left-1' : '-right-1'} bg-black/30 backdrop-blur-md rounded-full p-1 border border-white/10`}>
+                              <currentDetails.overlayIcon size={20 * weatherMult} style={currentDetails.overlayStyle} />
+                            </div>
+                          )}
+                      </div>
                     </div>
                   </div>
+                  
+                  {isComplex && (
+                    <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/20 w-full transition-transform" style={{ transform: `scale(${complexGridMult})`, transformOrigin: 'top center' }}>
+                       <div className="flex flex-col items-center justify-center bg-white/5 rounded-lg py-2"><Droplets size={18} style={rainStyle}/><span className="text-xs font-bold mt-1" style={tc}>{weatherData?.humidity || '--'}</span></div>
+                       <div className="flex flex-col items-center justify-center bg-white/5 rounded-lg py-2"><Wind size={18} style={rainStyle}/><span className="text-xs font-bold mt-1" style={tc}>{weatherData?.wind || '--'}</span></div>
+                       <div className="flex flex-col items-center justify-center bg-white/5 rounded-lg py-2"><Activity size={18} style={accentStyle}/><span className="text-xs font-bold mt-1" style={tc}>UV: {weatherData?.uv || '--'}</span></div>
+                    </div>
+                  )}
                 </div>
+
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                {[
-                  { id: 'dynamic', name: t.themeDynamic, color: 'bg-gradient-to-br from-blue-500 to-blue-800' },
-                  { id: 'midnight', name: t.themeMidnight, color: 'bg-slate-900' },
-                  { id: 'sunset', name: t.themeSunset, color: 'bg-gradient-to-br from-orange-500 to-purple-800' },
-                  { id: 'qmul', name: t.themeQMUL, color: 'bg-blue-800' },
-                  { id: 'forest', name: t.themeForest, color: 'bg-emerald-900' },
-                  { id: 'protanopia', name: t.themeProtanopia, color: 'bg-[#002B5B]' },
-                  { id: 'deuteranopia', name: t.themeDeuteranopia, color: 'bg-[#172B4D]' },
-                  { id: 'tritanopia', name: t.themeTritanopia, color: 'bg-[#212121]' },
-                  { id: 'custom', name: t.themeCustom, color: 'bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-500' }
-                ].map((themeOpt) => (
-                  <button
-                    key={themeOpt.id}
-                    onClick={() => setAppTheme(themeOpt.id)}
-                    className={`relative flex flex-col items-center justify-center p-5 md:p-6 rounded-2xl border-2 transition-all overflow-hidden ${
-                      appTheme === themeOpt.id ? 'scale-105 shadow-lg' : 'border-white/10 hover:border-white/30'
-                    }`}
-                    style={{ borderColor: appTheme === themeOpt.id ? currentNavActive : undefined }}
-                  >
-                    <div className={`absolute inset-0 opacity-50 ${themeOpt.color}`}></div>
-                    <div className="relative z-10 flex flex-col items-center gap-2">
-                      {appTheme === themeOpt.id && <CheckCircle2 size={24} className={`absolute -top-3 ${isRTL ? 'left-[-24px]' : 'right-[-24px]'}`} style={accentStyle} />}
-                      <span className="font-medium text-center text-sm md:text-base" style={tc}>{themeOpt.name}</span>
-                    </div>
-                  </button>
-                ))}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold mb-3 px-1 opacity-80" style={tc}>{t.categoryDynamic}</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  {[
+                    { id: 'dynamic', name: t.themeDynamic, color: 'bg-gradient-to-br from-blue-500 to-blue-800' },
+                    { id: 'colorful', name: t.themeColorful, color: 'bg-gradient-to-tr from-yellow-300 via-orange-400 to-pink-500' },
+                    { id: 'custom', name: t.themeCustom, color: 'bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-500' }
+                  ].map((themeOpt) => (
+                    <button
+                      key={themeOpt.id}
+                      onClick={() => setAppTheme(themeOpt.id)}
+                      className={`relative flex flex-col items-center justify-center p-5 md:p-6 rounded-2xl border-2 transition-all overflow-hidden ${
+                        appTheme === themeOpt.id ? 'scale-105 shadow-lg' : 'border-white/10 hover:border-white/30'
+                      }`}
+                      style={{ borderColor: appTheme === themeOpt.id ? currentNavActive : undefined }}
+                    >
+                      <div className={`absolute inset-0 opacity-50 ${themeOpt.color}`}></div>
+                      <div className="relative z-10 flex flex-col items-center gap-2">
+                        {appTheme === themeOpt.id && <CheckCircle2 size={24} className={`absolute -top-3 ${isRTL ? 'left-[-24px]' : 'right-[-24px]'}`} style={accentStyle} />}
+                        <span className="font-medium text-center text-sm md:text-base" style={tc}>{themeOpt.name}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <h4 className="text-sm font-semibold mb-3 px-1 opacity-80" style={tc}>{t.categoryMonotone}</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  {[
+                    { id: 'midnight', name: t.themeMidnight, color: 'bg-slate-900' },
+                    { id: 'sunset', name: t.themeSunset, color: 'bg-gradient-to-br from-orange-500 to-purple-800' },
+                    { id: 'qmul', name: t.themeQMUL, color: 'bg-blue-800' },
+                    { id: 'forest', name: t.themeForest, color: 'bg-emerald-900' }
+                  ].map((themeOpt) => (
+                    <button
+                      key={themeOpt.id}
+                      onClick={() => setAppTheme(themeOpt.id)}
+                      className={`relative flex flex-col items-center justify-center p-5 md:p-6 rounded-2xl border-2 transition-all overflow-hidden ${
+                        appTheme === themeOpt.id ? 'scale-105 shadow-lg' : 'border-white/10 hover:border-white/30'
+                      }`}
+                      style={{ borderColor: appTheme === themeOpt.id ? currentNavActive : undefined }}
+                    >
+                      <div className={`absolute inset-0 opacity-50 ${themeOpt.color}`}></div>
+                      <div className="relative z-10 flex flex-col items-center gap-2">
+                        {appTheme === themeOpt.id && <CheckCircle2 size={24} className={`absolute -top-3 ${isRTL ? 'left-[-24px]' : 'right-[-24px]'}`} style={accentStyle} />}
+                        <span className="font-medium text-center text-sm md:text-base" style={tc}>{themeOpt.name}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <h4 className="text-sm font-semibold mb-3 px-1 opacity-80" style={tc}>{t.categoryAccessibility}</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  {[
+                    { id: 'protanopia', name: t.themeProtanopia, color: 'bg-[#002B5B]' },
+                    { id: 'deuteranopia', name: t.themeDeuteranopia, color: 'bg-[#172B4D]' },
+                    { id: 'tritanopia', name: t.themeTritanopia, color: 'bg-[#212121]' },
+                    { id: 'achromatopsia', name: t.themeAchromatopsia, color: 'bg-[#18181b] grayscale' }
+                  ].map((themeOpt) => (
+                    <button
+                      key={themeOpt.id}
+                      onClick={() => setAppTheme(themeOpt.id)}
+                      className={`relative flex flex-col items-center justify-center p-5 md:p-6 rounded-2xl border-2 transition-all overflow-hidden ${
+                        appTheme === themeOpt.id ? 'scale-105 shadow-lg' : 'border-white/10 hover:border-white/30'
+                      }`}
+                      style={{ borderColor: appTheme === themeOpt.id ? currentNavActive : undefined }}
+                    >
+                      <div className={`absolute inset-0 opacity-50 ${themeOpt.color}`}></div>
+                      <div className="relative z-10 flex flex-col items-center gap-2">
+                        {appTheme === themeOpt.id && <CheckCircle2 size={24} className={`absolute -top-3 ${isRTL ? 'left-[-24px]' : 'right-[-24px]'}`} style={accentStyle} />}
+                        <span className="font-medium text-center text-xs md:text-sm" style={tc}>{themeOpt.name}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {appTheme === 'custom' && (
@@ -1079,7 +1138,7 @@ export default function App() {
                     {t.themeCustom} Options
                   </h3>
 
-                  {/* UPDATED: SIZES SECTION MOVED TO TOP OF CUSTOM THEME MENU */}
+                  {/* SIZES SECTION */}
                   <div className="mb-8">
                     <h4 className="text-sm font-semibold mb-3 flex items-center gap-2" style={tc}>
                       <Settings size={18} style={accentStyle} /> 
@@ -1110,7 +1169,6 @@ export default function App() {
                         {t.sizeNav} ({customSizes.nav}x)
                         <input type="range" min="0.5" max="1.5" step="0.1" value={customSizes.nav} onChange={e => setCustomSizes({...customSizes, nav: parseFloat(e.target.value)})} className="w-full" style={{ accentColor: currentNavActive }} />
                       </label>
-                      {/* NEW: Complex Specific Scaling Sliders */}
                       <label className="flex flex-col gap-1.5 text-sm" style={{ color: tc.color, opacity: 0.8 }}>
                         {t.sizeComplexGrid} ({customSizes.complexGrid}x)
                         <input type="range" min="0.5" max="1.5" step="0.1" value={customSizes.complexGrid} onChange={e => setCustomSizes({...customSizes, complexGrid: parseFloat(e.target.value)})} className="w-full" style={{ accentColor: currentNavActive }} />
@@ -1420,7 +1478,6 @@ export default function App() {
           )}
 
           {/* --- PAGE: MAP --- */}
-          {/* UPDATED: Map layout correctly mirrors for RTL languages like Arabic and Persian */}
           {activePage === 'map' && (
             <div className="flex-1 flex flex-col pt-4 px-6 md:px-12 pb-12 animate-in fade-in duration-500" dir={isRTL ? "rtl" : "ltr"}>
               <h2 className="text-2xl md:text-3xl font-bold mb-6 flex items-center gap-2" style={tc}>
