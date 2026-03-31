@@ -90,6 +90,11 @@ function CampusMap({ userLocation, campusLocation, currentCity, t, isRTL }) {
         mapInstance.current.remove();
         mapInstance.current = null;
       }
+      // Null out marker refs so placeOrMoveMarker creates fresh markers on next mount
+      // rather than calling setLatLng on stale objects that no longer belong to any map
+      userMarker.current = null;
+      campusMarker.current = null;
+      rainLayer.current = null;
     };
   }, [setLeafletLoaded]);
 
@@ -97,6 +102,16 @@ function CampusMap({ userLocation, campusLocation, currentCity, t, isRTL }) {
   useEffect(() => {
     // All three conditions must be true before any Leaflet API call is safe
     if (!leafletLoaded || !mapRef.current || !mapCenter) return;
+
+    // CDN Leaflet cannot resolve relative icon paths — deleting _getIconUrl forces it to use
+    // the absolute CDN URLs supplied via mergeOptions instead of its broken default resolver.
+    // Must run on every render (not just first mount) so markers always have their icon set
+    delete window.L.Icon.Default.prototype._getIconUrl;
+    window.L.Icon.Default.mergeOptions({
+      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+    });
 
     if (!mapInstance.current) {
       try {
@@ -106,15 +121,6 @@ function CampusMap({ userLocation, campusLocation, currentCity, t, isRTL }) {
         window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; OpenStreetMap contributors'
         }).addTo(mapInstance.current);
-
-        // CDN Leaflet cannot resolve relative icon paths — deleting _getIconUrl forces it to use
-        // the absolute CDN URLs supplied via mergeOptions instead of its broken default resolver
-        delete window.L.Icon.Default.prototype._getIconUrl;
-        window.L.Icon.Default.mergeOptions({
-          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-        });
       } catch (e) {
         console.error('Map init failed:', e);
         // Defer setState to avoid calling it synchronously inside an effect (React warning)
