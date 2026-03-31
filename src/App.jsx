@@ -11,20 +11,53 @@ import {
   Gauge, ArrowUp, Loader2, Search
 } from 'lucide-react';
 
-// Integrated CampusMap Component using CDN Leaflet to avoid module resolution errors
+// Builds a localised popup HTML string — direction and alignment flip for RTL languages (e.g. Arabic)
+function buildPopupHtml(isRTL, title, body) {
+  const dir = isRTL ? 'rtl' : 'ltr';
+  const align = isRTL ? 'right' : 'left';
+  return `<div dir="${dir}" style="text-align: ${align}"><b>${title}</b><br/>${body}</div>`;
+}
+
+// Creates a marker on first call; repositions and updates the popup on subsequent calls — avoids DOM churn
+function placeOrMoveMarker(markerRef, latlng, popupHtml, map) {
+  if (!markerRef.current) {
+    markerRef.current = window.L.marker(latlng).addTo(map).bindPopup(popupHtml);
+  } else {
+    markerRef.current.setLatLng(latlng).bindPopup(popupHtml);
+  }
+}
+
+// CampusMap uses CDN-loaded Leaflet instead of npm to avoid bundler/module resolution issues
 function CampusMap({ userLocation, campusLocation, currentCity, t, isRTL }) {
   const [mapError, setMapError] = useState(false);
-  const [leafletLoaded, setLeafletLoaded] = useState(false);
-  const mapRef = useRef(null);
-  const mapInstance = useRef(null);
-  const userMarker = useRef(null);
-  const campusMarker = useRef(null);
-  
-  const defaultCenter = userLocation || campusLocation;
-  const defaultZoom = userLocation ? 15 : 13;
+  // Boolean(window.L) is true if Leaflet was already injected by a previous mount of this component
+  const [leafletLoaded, setLeafletLoaded] = useState(() => Boolean(window.L));
+  const mapRef = useRef(null);       // DOM node that Leaflet mounts into
+  const mapInstance = useRef(null);  // Leaflet map object — stored in a ref so mutations don't trigger re-renders
+  const userMarker = useRef(null);   // Persisted across renders to reuse/move rather than recreate
+  const campusMarker = useRef(null); // Persisted across renders to reuse/move rather than recreate
+  const rainLayer = useRef(null);     // OWM precipitation tile layer — separate ref so it can be toggled independently
+  const [showRain, setShowRain] = useState(false); // Controls whether the rain map overlay is visible
 
-  // Dynamically load Leaflet CSS and JS
+  // Prefer the user's GPS position as centre; fall back to the fixed campus coordinate
+  const mapCenter = userLocation || campusLocation;
+  // Zoom in closer when we have a precise user location; use a wider view for campus-only
+  const mapZoom = userLocation ? 15 : 13;
+
+  // Resets the error flag then briefly toggles leafletLoaded off→on to re-trigger the map
+  // initialisation effect — a 100ms gap ensures React processes the false state before true
+  const handleRetry = () => {
+    setMapError(false);
+    setLeafletLoaded(false);
+    setTimeout(() => setLeafletLoaded(true), 100);
+  };
+
+  // Toggles the rain map overlay on/off
+  const handleRainToggle = () => setShowRain(prev => !prev);
+
+  // Dynamically inject Leaflet CSS and JS into <head> — state setter is stable so this runs once on mount
   useEffect(() => {
+    // Guard with an id check so hot-reloads don't inject duplicate <link> tags
     if (!document.getElementById('leaflet-css')) {
       const link = document.createElement('link');
       link.id = 'leaflet-css';
@@ -32,37 +65,50 @@ function CampusMap({ userLocation, campusLocation, currentCity, t, isRTL }) {
       link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
       document.head.appendChild(link);
     }
+
+    // Single named handler so the same function reference can be removed in cleanup
+    const handleLoad = () => setLeafletLoaded(true);
+
     if (!document.getElementById('leaflet-js')) {
+      // First mount: inject the script tag and wait for its onload event
       const script = document.createElement('script');
       script.id = 'leaflet-js';
       script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = () => setLeafletLoaded(true);
+      script.onload = handleLoad;
       document.head.appendChild(script);
     } else {
-      if (window.L) setLeafletLoaded(true);
-      else document.getElementById('leaflet-js').addEventListener('load', () => setLeafletLoaded(true));
+      // Script tag already exists but may still be loading — listen for its load event
+      document.getElementById('leaflet-js').addEventListener('load', handleLoad);
     }
 
     return () => {
+      // Remove the listener on unmount to prevent setState calls on a dead component
+      const existingScript = document.getElementById('leaflet-js');
+      if (existingScript) existingScript.removeEventListener('load', handleLoad);
+      // Destroy the Leaflet map instance to release DOM nodes and event listeners
       if (mapInstance.current) {
         mapInstance.current.remove();
         mapInstance.current = null;
       }
     };
-  }, []);
+  }, [setLeafletLoaded]);
 
-  // Initialize and update map
+  // Initialize map on first render after Leaflet loads; update view/markers on subsequent renders
   useEffect(() => {
-    if (!leafletLoaded || !mapRef.current || !defaultCenter) return;
+    // All three conditions must be true before any Leaflet API call is safe
+    if (!leafletLoaded || !mapRef.current || !mapCenter) return;
 
     if (!mapInstance.current) {
       try {
-        mapInstance.current = window.L.map(mapRef.current).setView([defaultCenter.lat, defaultCenter.lng], defaultZoom);
+        // Create the map and center it immediately to avoid a blank grey tile flash
+        mapInstance.current = window.L.map(mapRef.current).setView([mapCenter.lat, mapCenter.lng], mapZoom);
+        // OpenStreetMap tile layer — free, no API key required
         window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; OpenStreetMap contributors'
         }).addTo(mapInstance.current);
 
-        // Fix for default marker icons missing in CDN setup
+        // CDN Leaflet cannot resolve relative icon paths — deleting _getIconUrl forces it to use
+        // the absolute CDN URLs supplied via mergeOptions instead of its broken default resolver
         delete window.L.Icon.Default.prototype._getIconUrl;
         window.L.Icon.Default.mergeOptions({
           iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -70,37 +116,73 @@ function CampusMap({ userLocation, campusLocation, currentCity, t, isRTL }) {
           shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
         });
       } catch (e) {
-        setMapError(true);
+        console.error('Map init failed:', e);
+        // Defer setState to avoid calling it synchronously inside an effect (React warning)
+        setTimeout(() => setMapError(true), 0);
         return;
       }
     } else {
-      mapInstance.current.setView([defaultCenter.lat, defaultCenter.lng], defaultZoom);
+      // Map already exists — just recentre it when the user moves or switches campus
+      mapInstance.current.setView([mapCenter.lat, mapCenter.lng], mapZoom);
     }
 
-    // Update user marker with translated popups and RTL support
+    // Place or move the user's location marker with a localised popup
     if (userLocation?.lat) {
-      if (!userMarker.current) {
-        userMarker.current = window.L.marker([userLocation.lat, userLocation.lng]).addTo(mapInstance.current)
-          .bindPopup(`<div dir="${isRTL ? 'rtl' : 'ltr'}" style="text-align: ${isRTL ? 'right' : 'left'}"><b>${t.mapYourLocation}</b><br/>${t.mapYouAreHere}</div>`);
-      } else {
-        userMarker.current.setLatLng([userLocation.lat, userLocation.lng])
-          .bindPopup(`<div dir="${isRTL ? 'rtl' : 'ltr'}" style="text-align: ${isRTL ? 'right' : 'left'}"><b>${t.mapYourLocation}</b><br/>${t.mapYouAreHere}</div>`);
-      }
+      placeOrMoveMarker(
+        userMarker,
+        [userLocation.lat, userLocation.lng],
+        buildPopupHtml(isRTL, t.mapYourLocation, t.mapYouAreHere),
+        mapInstance.current
+      );
     }
 
-    // Update campus marker
+    // Place or move the campus marker with the university name and campus label
     if (campusLocation?.lat) {
-      if (!campusMarker.current) {
-        campusMarker.current = window.L.marker([campusLocation.lat, campusLocation.lng]).addTo(mapInstance.current)
-          .bindPopup(`<div dir="${isRTL ? 'rtl' : 'ltr'}" style="text-align: ${isRTL ? 'right' : 'left'}"><b>${currentCity?.uni || 'University'}</b><br/>${currentCity?.campus || 'Campus'}</div>`);
-      } else {
-        campusMarker.current.setLatLng([campusLocation.lat, campusLocation.lng])
-          .bindPopup(`<div dir="${isRTL ? 'rtl' : 'ltr'}" style="text-align: ${isRTL ? 'right' : 'left'}"><b>${currentCity?.uni || 'University'}</b><br/>${currentCity?.campus || 'Campus'}</div>`);
-      }
+      placeOrMoveMarker(
+        campusMarker,
+        [campusLocation.lat, campusLocation.lng],
+        buildPopupHtml(isRTL, currentCity?.uni || 'University', currentCity?.campus || 'Campus'),
+        mapInstance.current
+      );
     }
-  }, [leafletLoaded, defaultCenter?.lat, defaultCenter?.lng, userLocation, campusLocation, currentCity, defaultZoom, t, isRTL]);
+  }, [leafletLoaded, mapCenter, mapCenter?.lat, mapCenter?.lng, userLocation, campusLocation, currentCity, mapZoom, t, isRTL, setMapError]);
 
-  if (!defaultCenter || !defaultCenter.lat || !defaultCenter.lng) {
+  // Add/remove the OWM precipitation tile overlay when showRain toggles
+  useEffect(() => {
+    if (!leafletLoaded || !mapInstance.current) return;
+
+    if (!showRain) {
+      // Remove the layer immediately when the user turns the overlay off
+      if (rainLayer.current) {
+        rainLayer.current.remove();
+        rainLayer.current = null;
+      }
+      return;
+    }
+
+    // VITE_OWM_KEY is injected at build time by Vite from .env — it is never exposed as a
+    // runtime variable, but it does appear in the network request URL, so keep .env out of git
+    const owmKey = import.meta.env.VITE_OWM_KEY;
+    // precipitation_new is OWM's Maps 1.0 layer — free tier, supports all zoom levels natively
+    const tileUrl = `https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${owmKey}`;
+
+    // Opacity at 0.6 so the base map street labels remain readable underneath
+    rainLayer.current = window.L.tileLayer(tileUrl, {
+      opacity: 0.6,
+      attribution: '&copy; <a href="https://openweathermap.org">OpenWeatherMap</a>'
+    }).addTo(mapInstance.current);
+
+    return () => {
+      // Remove the layer on cleanup so toggling quickly doesn't stack multiple layers
+      if (rainLayer.current) {
+        rainLayer.current.remove();
+        rainLayer.current = null;
+      }
+    };
+  }, [showRain, leafletLoaded]);
+
+  // Guard: if coordinates are missing or malformed, render an error instead of a broken map
+  if (!mapCenter || !mapCenter.lat || !mapCenter.lng) {
     return (
       <div className="bg-red-500/20 rounded-2xl p-8 text-center">
         <p className="text-white">Unable to load map: Invalid coordinates</p>
@@ -111,15 +193,27 @@ function CampusMap({ userLocation, campusLocation, currentCity, t, isRTL }) {
   return (
     <div className="relative w-full h-[400px] md:h-[500px] rounded-2xl overflow-hidden shadow-lg z-0">
       {!mapError ? (
-        <div ref={mapRef} style={{ height: '100%', width: '100%' }} className="z-0" />
+        <>
+          {/* The map div must have explicit height — Leaflet reads it from the DOM to size tiles correctly */}
+          <div ref={mapRef} style={{ height: '100%', width: '100%' }} className="z-0" />
+          {/* Rain radar toggle — positioned above the map so it doesn't interfere with Leaflet's z-index */}
+          <button
+            onClick={handleRainToggle}
+            className={`absolute top-3 right-3 z-[1000] flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shadow-md transition-colors ${
+              showRain
+                ? 'bg-blue-500 text-white'
+                : 'bg-white/80 text-gray-700 hover:bg-white'
+            }`}
+          >
+            <CloudRain size={14} />
+            {showRain ? 'Rain Map ON' : 'Rain Map OFF'}
+          </button>
+        </>
       ) : (
         <div className="bg-red-500/20 rounded-2xl p-8 text-center h-full flex items-center justify-center">
           <div>
             <p className="text-white mb-2">{t.mapFailLoad}</p>
-            <button 
-              onClick={() => { setMapError(false); setLeafletLoaded(false); setTimeout(() => setLeafletLoaded(true), 100); }}
-              className="text-xs bg-white/20 px-3 py-1 rounded-full"
-            >
+            <button onClick={handleRetry} className="text-xs bg-white/20 px-3 py-1 rounded-full">
               {t.mapRetry}
             </button>
           </div>
@@ -448,7 +542,7 @@ export default function App() {
     };
 
     fetchWeather();
-  }, [selectedLocation.lat, selectedLocation.lon]);
+  }, [selectedLocation, selectedLocation.lat, selectedLocation.lon]);
 
   const getDisplayTemperature = () => {
     if (!weatherData) return "--°";
