@@ -237,7 +237,7 @@ const UK_UNIVERSITIES = [
   { city: "Middlesbrough", uni: "Teesside University", campus: "City Campus", lat: 54.5724, lon: -1.2336 },
   { city: "Newcastle", uni: "Northumbria University", campus: "City Campus", lat: 54.9781, lon: -1.6067 },
   { city: "York", uni: "York St John University", campus: "Lord Mayor's Walk", lat: 53.9654, lon: -1.0792 },
-  { city: "London", uni: "University of Greenwich", campus: "Greenwich Campus (Old Royal Naval College)", lat: 51.4829, lon: -0.0063 }
+  { city: "London", uni: "University of Greenwich", campus: "Greenwich Campus (Old Royal Naval College)", lat: 51.4829, lon: -0.0063 },
   { city: "London", uni: "University of East London", campus: "Docklands Campus", lat: 51.5079, lon: 0.0640 },
   { city: "London", uni: "London Metropolitan University", campus: "Holloway Campus", lat: 51.5517, lon: -0.1106 },
   { city: "London", uni: "University of West London", campus: "Ealing Campus", lat: 51.5072, lon: -0.3045 },
