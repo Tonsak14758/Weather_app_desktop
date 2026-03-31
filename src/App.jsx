@@ -263,7 +263,10 @@ const UK_UNIVERSITIES = [
   { city: "Leeds", uni: "Leeds Arts University", campus: "Vernon Street", lat: 53.8090, lon: -1.5480 },
   { city: "Birmingham", uni: "Birmingham City University", campus: "City Centre Campus", lat: 52.4835, lon: -1.8874 },
   { city: "London", uni: "University of Law", campus: "Bloomsbury", lat: 51.5200, lon: -0.1230 },
-  { city: "Milton Keynes", uni: "Open University", campus: "Walton Hall", lat: 52.0246, lon: -0.7081 }
+  { city: "Milton Keynes", uni: "Open University", campus: "Walton Hall", lat: 52.0246, lon: -0.7081 },
+  { city: "Leeds", uni: "Leeds Trinity University", campus: "Horsforth", lat: 53.8402, lon: -1.6376 },
+  { city: "London", uni: "SOAS University of London", campus: "Bloomsbury", lat: 51.5224, lon: -0.1290 }
+  
 ];
 
 export default function App() {
