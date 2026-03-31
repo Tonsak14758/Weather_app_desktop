@@ -236,7 +236,34 @@ const UK_UNIVERSITIES = [
   { city: "Sunderland", uni: "University of Sunderland", campus: "City Campus", lat: 54.9048, lon: -1.3888 },
   { city: "Middlesbrough", uni: "Teesside University", campus: "City Campus", lat: 54.5724, lon: -1.2336 },
   { city: "Newcastle", uni: "Northumbria University", campus: "City Campus", lat: 54.9781, lon: -1.6067 },
-  { city: "York", uni: "York St John University", campus: "Lord Mayor's Walk", lat: 53.9654, lon: -1.0792 }
+  { city: "York", uni: "York St John University", campus: "Lord Mayor's Walk", lat: 53.9654, lon: -1.0792 },
+  { city: "London", uni: "University of Greenwich", campus: "Greenwich Campus (Old Royal Naval College)", lat: 51.4829, lon: -0.0063 }
+  { city: "London", uni: "University of East London", campus: "Docklands Campus", lat: 51.5079, lon: 0.0640 },
+  { city: "London", uni: "London Metropolitan University", campus: "Holloway Campus", lat: 51.5517, lon: -0.1106 },
+  { city: "London", uni: "University of West London", campus: "Ealing Campus", lat: 51.5072, lon: -0.3045 },
+  { city: "London", uni: "St Mary's University", campus: "Twickenham Campus", lat: 51.4386, lon: -0.3357 },
+  { city: "London", uni: "Ravensbourne University London", campus: "Greenwich Peninsula", lat: 51.5016, lon: 0.0032 },
+  { city: "Canterbury", uni: "Canterbury Christ Church University", campus: "North Holmes Road", lat: 51.2809, lon: 1.0803 },
+  { city: "Winchester", uni: "University of Winchester", campus: "West Downs", lat: 51.0621, lon: -1.3300 },
+  { city: "Worcester", uni: "University of Worcester", campus: "St John's Campus", lat: 52.1920, lon: -2.2222 },
+  { city: "Gloucester", uni: "Hartpury University", campus: "Hartpury Campus", lat: 51.8985, lon: -2.3028 },
+  { city: "Falmouth", uni: "Falmouth University", campus: "Penryn Campus", lat: 50.1696, lon: -5.1236 },
+  { city: "Truro", uni: "University of Cornwall", campus: "Various", lat: 50.2632, lon: -5.0510 },
+  { city: "Carlisle", uni: "University of Cumbria", campus: "Fusehill Street", lat: 54.8951, lon: -2.9382 },
+  { city: "Bolton", uni: "University of Greater Manchester", campus: "Deane Road", lat: 53.5733, lon: -2.4299 },
+  { city: "Chester", uni: "Cheshire College University Centre", campus: "Ellesmere Port", lat: 53.2783, lon: -2.9020 },
+  { city: "London", uni: "Courtauld Institute of Art", campus: "Somerset House", lat: 51.5113, lon: -0.1176 },
+  { city: "London", uni: "Royal College of Art", campus: "Kensington", lat: 51.5010, lon: -0.1740 },
+  { city: "London", uni: "Royal Academy of Music", campus: "Marylebone Road", lat: 51.5221, lon: -0.1547 },
+  { city: "London", uni: "Guildhall School of Music and Drama", campus: "Barbican", lat: 51.5194, lon: -0.0920 },
+  { city: "Bishop Burton", uni: "Bishop Burton College (University Centre)", campus: "Main Campus", lat: 53.8419, lon: -0.5032 },
+  { city: "Harper Adams", uni: "Harper Adams University", campus: "Edgmond", lat: 52.7803, lon: -2.4274 },
+  { city: "Cirencester", uni: "Royal Agricultural University", campus: "Stroud Road", lat: 51.7196, lon: -1.9685 },
+  { city: "Norwich", uni: "Norwich University of the Arts", campus: "City Campus", lat: 52.6280, lon: 1.3000 },
+  { city: "Leeds", uni: "Leeds Arts University", campus: "Vernon Street", lat: 53.8090, lon: -1.5480 },
+  { city: "Birmingham", uni: "Birmingham City University", campus: "City Centre Campus", lat: 52.4835, lon: -1.8874 },
+  { city: "London", uni: "University of Law", campus: "Bloomsbury", lat: 51.5200, lon: -0.1230 },
+  { city: "Milton Keynes", uni: "Open University", campus: "Walton Hall", lat: 52.0246, lon: -0.7081 }
 ];
 
 export default function App() {
