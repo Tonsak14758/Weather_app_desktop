@@ -559,7 +559,7 @@ export default function App() {
     { code: 'AR', name: 'العربية (Arabic)', flag: 'sa' },
     { code: 'HI', name: 'हिन्दी (Hindi)', flag: 'in' },
     { code: 'BN', name: 'বাংলা (Bengali)', flag: 'bd' },
-    { code: 'PA', name: 'اردو (Urdu)', flag: 'pk' },
+    { code: 'PA', name: 'اردو (Urdu)', flag: 'pk' }
   
   ];
 
