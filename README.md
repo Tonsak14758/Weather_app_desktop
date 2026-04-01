@@ -23,7 +23,11 @@ First, you download or clone the app zip file.
 
 Then, you extract the file through file explorer.
 
-Open terminal and type exactly: cd ~/Downloads/folder-name/folder-name (whatever, you saved as when extracting the file)
+Open terminal and type exactly: 
+
+     cd ~/Downloads/folder-name/folder-name 
+     
+(whatever, you saved as when extracting the file)
 
 Then, type these 2 words in order:
 
