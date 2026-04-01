@@ -34,3 +34,5 @@ Then, type these 2 words in order:
     npm install
   
     npm run dev
+
+After that, it will give a link like http://localhost:5173/ so don't close the terminal but copy and paste the link to web browser and the app should be there.
