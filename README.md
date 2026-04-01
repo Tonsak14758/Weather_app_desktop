@@ -36,3 +36,5 @@ Then, type these 2 words in order:
     npm run dev
 
 After that, it will give a link like http://localhost:5173/ so don't close the terminal but copy and paste the link to web browser and the app should be there.
+
+(Warning, if you close the terminal however or if the terminal isn't open or if the terminal is open but you haven't executed the steps fully, the link will not work).
