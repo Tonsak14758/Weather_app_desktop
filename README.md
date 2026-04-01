@@ -18,7 +18,12 @@ Note: This will impact Vite dev & build performances.
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
 
 ## Command for libaries
+npm install -D tailwindcss @tailwindcss/vite
 npm install lucide-react react-leaflet leaflet
+
+## Github Web page(Preview application)
+Use this web URL for checking Weather app.
+https://tonsak14758.github.io/Weather_app_Group39/
 
 ## How to run the app (Recommend)
 
